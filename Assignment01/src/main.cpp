@@ -37,7 +37,7 @@ namespace assignment_01 {
                 buf[i].data *= i;
             }
             std::chrono::high_resolution_clock::time_point end_time = std::chrono::high_resolution_clock::now();
-            duration += std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count();
+            duration += static_cast<double>(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count());
             delete[] buf;
         }
         return duration / static_cast<double>(benches_cnt);
