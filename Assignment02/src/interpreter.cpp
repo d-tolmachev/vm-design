@@ -1,45 +1,11 @@
 #include "interpreter.h"
 
-#include <algorithm>
-#include <array>
-#include <iomanip>
-#include <sstream>
-#include <utility>
-
 namespace assignment_02 {
 
-    static auint to_repr(int32_t val) noexcept {
-        constexpr static auint UC = static_cast<auint>(-1) >> 1;
-        auint repr = static_cast<auint>(val) & (UC >> 1);
-        repr <<= 1;
-        if (val < 0) {
-            repr |= static_cast<auint>(1) << (8 * sizeof(auint) - 1);
-        }
-        repr |= 1;
-        return repr;
-    }
-
-    static int32_t to_integer(auint repr) noexcept {
-        return static_cast<int32_t>(repr) >> 1;
-    }
-
-    error::error(const std::string& message, uint32_t line_number, uint32_t bytecode_offset)
-        : message_(message) {
-        std::ostringstream os;
-        os << ". Line: " << line_number << ", bytecode offset: " << std::hex << std::showbase << bytecode_offset;
-        message_ += os.str();
-    }
-
-    error::error(std::string&& message, uint32_t line_number, uint32_t bytecode_offset) noexcept
-        : message_(std::move(message)) {
-        std::ostringstream os;
-        os << ". Line: " << line_number << ", bytecode offset: " << std::hex << std::showbase << bytecode_offset;
-        message_ += os.str();
-    }
-
-    const char* error::what() const noexcept {
-        return message_.c_str();
-    }
+    constexpr static size_t MAX_FRAMES_SIZE = 0xFFFF;
+    constexpr static size_t MAX_STACK_SIZE = 0xFFFFF;
+    static std::array<frame, MAX_FRAMES_SIZE> frames_buf;
+    static std::array<auint, MAX_STACK_SIZE> stack_buf{};
 
     aggregate::aggregate(from_repr, auint repr) noexcept
         : repr_(repr) {
@@ -50,65 +16,52 @@ namespace assignment_02 {
     }
 
     uint32_t aggregate::get_elements_size() const noexcept {
-        return to_integer(Llength(reinterpret_cast<void*>(repr_)));
+        return UNBOX(Llength(reinterpret_cast<void*>(repr_)));
     }
 
     value aggregate::get_element(uint32_t pos) const {
-        return value{static_cast<auint*>(Belem(reinterpret_cast<void*>(repr_), static_cast<aint>(to_repr(static_cast<int32_t>(pos)))))};
+        return value{static_cast<auint*>(Belem(reinterpret_cast<void*>(repr_), static_cast<aint>(BOX(static_cast<int32_t>(pos)))))};
     }
 
     void aggregate::set_element(uint32_t pos, value element) {
-        Bsta(reinterpret_cast<void*>(repr_), static_cast<aint>(to_repr(static_cast<int32_t>(pos))), element.as_reference());
+        Bsta(reinterpret_cast<void*>(repr_), static_cast<aint>(BOX(static_cast<int32_t>(pos))), element.as_reference());
     }
 
     array::array(from_repr, auint repr) noexcept
         : aggregate(from_repr_t, repr) {
     }
 
-    array::array(std::vector<aint>& elements)
-        : aggregate(from_repr_t, reinterpret_cast<auint>(Barray(elements.data(), BOX(elements.size())))) {
+    array::array(std::span<auint> elements)
+        : aggregate(from_repr_t, to_array(elements)) {
     }
 
-    array::array(std::vector<aint>&& elements)
-        : aggregate(from_repr_t, reinterpret_cast<auint>(Barray(elements.data(), BOX(elements.size())))) {
+    auint array::to_array(std::span<auint> elements) {
+        return reinterpret_cast<auint>(Barray(static_cast<aint*>(static_cast<void*>(elements.data())), BOX(elements.size())));
     }
 
     s_expr::s_expr(from_repr, auint repr) noexcept
         : aggregate(from_repr_t, repr) {
     }
 
-    s_expr::s_expr(std::string_view tag, std::vector<aint>& elements)
+    s_expr::s_expr(std::string_view tag, std::span<auint> elements)
         : aggregate(from_repr_t, to_s_expr(tag, elements)) {
-    }
-
-    s_expr::s_expr(std::string_view tag, std::vector<aint>&& elements)
-        : aggregate(from_repr_t, to_s_expr(tag, std::move(elements))) {
     }
 
     std::string_view s_expr::get_tag() const noexcept {
         return {reinterpret_cast<char*>(TO_SEXP(reinterpret_cast<void*>(get_repr()))->tag)};
     }
 
-    auint s_expr::to_s_expr(std::string_view tag, std::vector<aint>& elements) {
-        elements.push_back(LtagHash(const_cast<char*>(tag.data())));
-        return reinterpret_cast<auint>(Bsexp(elements.data(), BOX(elements.size())));
-    }
-
-    auint s_expr::to_s_expr(std::string_view tag, std::vector<aint>&& elements) {
-        elements.push_back(LtagHash(const_cast<char*>(tag.data())));
-        return reinterpret_cast<auint>(Bsexp(elements.data(), BOX(elements.size())));
+    auint s_expr::to_s_expr(std::string_view tag, std::span<auint> elements) {
+        elements[elements.size() - 1] = LtagHash(const_cast<char*>(tag.data()));
+        return reinterpret_cast<auint>(Bsexp(static_cast<aint*>(static_cast<void*>(elements.data())), BOX(elements.size())));
     }
 
     closure::closure(from_repr, auint repr) noexcept
         : repr_(repr) {
     }
 
-    closure::closure(std::vector<aint>& captured)
-        : repr_(reinterpret_cast<auint>(Bclosure(captured.data(), BOX(captured.size())))) {
-    }
-
-    closure::closure(std::vector<aint>&& captured)
-        : repr_(reinterpret_cast<auint>(Bclosure(captured.data(), BOX(captured.size())))) {
+    closure::closure(std::span<auint> captured)
+        : repr_(to_closure(captured)) {
     }
 
     auint closure::get_repr() const noexcept {
@@ -116,11 +69,11 @@ namespace assignment_02 {
     }
 
     uint32_t closure::get_code_offset() const noexcept {
-        return to_integer(reinterpret_cast<auint*>(TO_DATA(reinterpret_cast<void*>(repr_))->contents)[0]);
+        return UNBOX(reinterpret_cast<auint*>(TO_DATA(reinterpret_cast<void*>(repr_))->contents)[0]);
     }
 
     uint32_t closure::get_captured_size() const noexcept {
-        return to_integer(Llength(reinterpret_cast<void*>(repr_)));
+        return UNBOX(Llength(reinterpret_cast<void*>(repr_))) - 1;
     }
 
     value closure::get_capture(uint32_t pos) const {
@@ -135,6 +88,10 @@ namespace assignment_02 {
         reinterpret_cast<auint*>(TO_DATA(reinterpret_cast<void*>(repr_))->contents)[pos + 1] = capture.get_repr();
     }
 
+    auint closure::to_closure(std::span<auint> captured) {
+        return reinterpret_cast<auint>(Bclosure(static_cast<aint*>(static_cast<void*>(captured.data())), BOX(captured.size())));
+    }
+
     value::value() noexcept
         : value(from_repr_t, 0) {
     }
@@ -144,7 +101,7 @@ namespace assignment_02 {
     }
 
     value::value(int32_t val) noexcept
-        : repr_(to_repr(val)) {
+        : repr_(BOX(val)) {
     }
 
     value::value(const auint* val) noexcept
@@ -208,7 +165,7 @@ namespace assignment_02 {
     }
 
     int32_t value::as_integer() const noexcept {
-        return to_integer(repr_);
+        return UNBOX(repr_);
     }
 
     auint* value::as_reference() const noexcept {
@@ -235,7 +192,7 @@ namespace assignment_02 {
         return closure{from_repr_t, repr_};
     }
 
-    value value::get_string() const {
+    value value::get_string() const noexcept {
         std::array<aint, 1> values{static_cast<aint>(repr_)};
         return value{static_cast<auint*>(Lstring(values.data()))};
     }
@@ -245,13 +202,21 @@ namespace assignment_02 {
         return reinterpret_cast<auint>(Bstring(values.data()));
     }
 
-    frame::frame(uint32_t base, uint32_t locals_size, uint32_t args_size, std::vector<auint>& stack, bool is_closure) noexcept
-        : base_(base)
+    frame::frame() noexcept
+        : base_(static_cast<uint32_t>(-1))
+        , locals_size_(static_cast<uint32_t>(-1))
+        , args_size_(static_cast<uint32_t>(-1))
+        , is_frame_closure_(false)
+        , return_address_(static_cast<uint32_t>(-1)) {
+    }
+
+    frame::frame(std::span<auint> stack, uint32_t base, uint32_t locals_size, uint32_t args_size, bool is_frame_closure) noexcept
+        : stack_(stack)
+        , base_(base)
         , locals_size_(locals_size)
         , args_size_(args_size)
-        , stack_(stack)
-        , is_closure_(is_closure)
-        , return_address_(-1) {
+        , is_frame_closure_(is_frame_closure)
+        , return_address_(static_cast<uint32_t>(-1)) {
     }
 
     uint32_t frame::get_base() const noexcept {
@@ -263,11 +228,11 @@ namespace assignment_02 {
     }
 
     value frame::get_local(uint32_t pos) const {
-        return value{from_repr_t, stack_.at(base_ + pos)};
+        return value{from_repr_t, stack_[base_ + pos]};
     }
 
     value frame::get_local_reference(uint32_t pos) const {
-        return value{&stack_.at(base_ + pos)};
+        return value{&stack_[base_ + pos]};
     }
 
     void frame::set_local(uint32_t pos, value local) {
@@ -279,11 +244,11 @@ namespace assignment_02 {
     }
 
     value frame::get_arg(uint32_t pos) const {
-        return value{from_repr_t, stack_.at(base_ - args_size_ + pos)};
+        return value{from_repr_t, stack_[base_ - args_size_ + pos]};
     }
 
     value frame::get_arg_reference(uint32_t pos) const {
-        return value{&stack_.at(base_ - args_size_ + pos)};
+        return value{&stack_[base_ - args_size_ + pos]};
     }
 
     void frame::set_arg(uint32_t pos, value arg) {
@@ -291,30 +256,30 @@ namespace assignment_02 {
     }
 
     bool frame::is_closure() const noexcept {
-        return is_closure_;
+        return is_frame_closure_;
     }
 
-    void frame::is_closure(bool is_closure) noexcept {
-        is_closure_ = is_closure;
+    void frame::is_closure(bool is_frame_closure) noexcept {
+        is_frame_closure_ = is_frame_closure;
     }
 
     uint32_t frame::get_captured_vars_size() const noexcept {
-        closure frame_closure(from_repr_t, stack_.at(base_ - args_size_ - 1));
+        closure frame_closure(from_repr_t, stack_[base_ - args_size_ - 1]);
         return frame_closure.get_captured_size();
     }
 
     value frame::get_captured_var(uint32_t pos) const {
-        closure frame_closure(from_repr_t, stack_.at(base_ - args_size_ - 1));
+        closure frame_closure(from_repr_t, stack_[base_ - args_size_ - 1]);
         return frame_closure.get_capture(pos);
     }
 
     value frame::get_captured_var_reference(uint32_t pos) const {
-        closure frame_closure(from_repr_t, stack_.at(base_ - args_size_ - 1));
+        closure frame_closure(from_repr_t, stack_[base_ - args_size_ - 1]);
         return frame_closure.get_capture_reference(pos);
     }
 
     void frame::set_captured_var(uint32_t pos, value captured_var) {
-        closure frame_closure(from_repr_t, stack_.at(base_ - args_size_ - 1));
+        closure frame_closure(from_repr_t, stack_[base_ - args_size_ - 1]);
         frame_closure.set_capture(pos, captured_var);
     }
 
@@ -326,124 +291,78 @@ namespace assignment_02 {
         return_address_ = return_address;
     }
 
-    state::state(const bytefile& file)
+    state::state(const bytefile& file) noexcept
         : ip_(0)
-        , stack_(file.get_global_area_size() + 2)
-        , stack_bottom_(stack_.size())
+        , frames_(frames_buf.begin(), 0)
+        , stack_(stack_buf.begin(), file.get_global_area_size() + 2)
         , is_tmp_closure_(false)
-        , bytefile_(file)
-        , line_number_(0) {
+        , bytefile_(file) {
+        validate(stack_.size() < MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
         __init();
-        update_stack_boundaries();
+        __gc_stack_top = reinterpret_cast<size_t>(stack_.data());
+        __gc_stack_bottom = reinterpret_cast<size_t>(stack_.data() + stack_.size());
     }
 
     state::~state() {
         __shutdown();
     }
 
-    bytecode state::get_next_op() {
+    bytecode state::pop_next_op() {
         ++ip_;
+        validate(ip_ < bytefile_.get_code_size(), "Unexpected end of code. Bytecode offset: %#X\n");
         return bytefile_.get_code(ip_ - sizeof(bytecode));
     }
 
-    void state::execute_low_add() {
+    void state::execute_binop_high() {
+        int32_t res = 0;
         value rhs = pop();
         value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
+        validate(lhs.is_integer(), "operand must be integer. Bytecode offset: %#X\n");
         int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
+        validate(rhs.is_integer(), "operand must be integer. Bytecode offset: %#X\n");
         int32_t rhs_int = rhs.as_integer();
-        int32_t res = static_cast<int32_t>(static_cast<int64_t>(lhs_int) + static_cast<int64_t>(rhs_int));
-        push(res);
-    }
-
-    void state::execute_low_sub() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        int32_t res = static_cast<int32_t>(static_cast<int64_t>(lhs_int) - static_cast<int64_t>(rhs_int));
-        push(res);
-    }
-
-    void state::execute_low_mul() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        int32_t res = static_cast<int32_t>(static_cast<int64_t>(lhs_int) * static_cast<int64_t>(rhs_int));
-        push(res);
-    }
-
-    void state::execute_low_div() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        validate(rhs_int != 0, "division by zero");
-        int32_t res = static_cast<int32_t>(static_cast<int64_t>(lhs_int) / static_cast<int64_t>(rhs_int));
-        push(res);
-    }
-
-    void state::execute_low_mod() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        validate(rhs_int != 0, "division by zero");
-        int32_t res = static_cast<int32_t>(static_cast<int64_t>(lhs_int) % static_cast<int64_t>(rhs_int));
-        push(res);
-    }
-
-    void state::execute_low_lt() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        int32_t res = (lhs_int < rhs_int);
-        push(res);
-    }
-
-    void state::execute_low_le() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        int32_t res = (lhs_int <= rhs_int);
-        push(res);
-    }
-
-    void state::execute_low_gt() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        int32_t res = (lhs_int > rhs_int);
-        push(res);
-    }
-
-    void state::execute_low_ge() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        int32_t res = (lhs_int >= rhs_int);
+        switch (peek_current_op()) {
+            case bytecode::LOW_ADD:
+                res = static_cast<int32_t>(static_cast<int64_t>(lhs_int) + static_cast<int64_t>(rhs_int));
+                break;
+            case bytecode::LOW_SUB:
+                res = static_cast<int32_t>(static_cast<int64_t>(lhs_int) - static_cast<int64_t>(rhs_int));
+                break;
+            case bytecode::LOW_MUL:
+                res = static_cast<int32_t>(static_cast<int64_t>(lhs_int) * static_cast<int64_t>(rhs_int));
+                break;
+            case bytecode::LOW_DIV:
+                validate(rhs_int != 0, "division by zero. Bytecode offset: %#X\n");
+                res = static_cast<int32_t>(static_cast<int64_t>(lhs_int) / static_cast<int64_t>(rhs_int));
+                break;
+            case bytecode::LOW_MOD:
+                validate(rhs_int != 0, "division by zero. Bytecode offset: %#X\n");
+                res = static_cast<int32_t>(static_cast<int64_t>(lhs_int) % static_cast<int64_t>(rhs_int));
+                break;
+            case bytecode::LOW_LT:
+                res = (lhs_int < rhs_int);
+                break;
+            case bytecode::LOW_LE:
+                res = (lhs_int <= rhs_int);
+                break;
+            case bytecode::LOW_GT:
+                res = (lhs_int > rhs_int);
+                break;
+            case bytecode::LOW_GE:
+                res = (lhs_int >= rhs_int);
+                break;
+            case bytecode::LOW_NE:
+                res = (lhs_int != rhs_int);
+                break;
+            case bytecode::LOW_AND:
+                res = (lhs_int && rhs_int);
+                break;
+            case bytecode::LOW_OR:
+                res = (lhs_int || rhs_int);
+                break;
+            default:
+                validate(false, "Unknown bytecode. Bytecode offset: %#X\n");
+        }
         push(res);
     }
 
@@ -451,7 +370,7 @@ namespace assignment_02 {
         int32_t res = 0;
         value rhs = pop();
         value lhs = pop();
-        validate(lhs.is_integer() || rhs.is_integer(), "one of the operands must be integer");
+        validate(lhs.is_integer() || rhs.is_integer(), "one of the operands must be integer. Bytecode offset: %#X\n");
         if (lhs.is_integer() && rhs.is_integer()) {
             int32_t lhs_int = lhs.as_integer();
             int32_t rhs_int = rhs.as_integer();
@@ -460,68 +379,33 @@ namespace assignment_02 {
         push(res);
     }
 
-    void state::execute_low_ne() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        int32_t res = (lhs_int != rhs_int);
-        push(res);
-    }
-
-    void state::execute_low_and() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        int32_t res = (lhs_int && rhs_int);
-        push(res);
-    }
-
-    void state::execute_low_or() {
-        value rhs = pop();
-        value lhs = pop();
-        validate(lhs.is_integer(), "operand must be integer");
-        int32_t lhs_int = lhs.as_integer();
-        validate(rhs.is_integer(), "operand must be integer");
-        int32_t rhs_int = rhs.as_integer();
-        int32_t res = (lhs_int || rhs_int);
-        push(res);
-    }
-
     void state::execute_const() {
-        int32_t constant = get_next_int32();
+        int32_t constant = pop_next_int32();
         push(constant);
     }
 
     void state::execute_string() {
-        int32_t string_pos = get_next_int32();
-        validate(string_pos >= 0 && string_pos < bytefile_.get_string_tab_size(), "string index out of bounds");
+        int32_t string_pos = pop_next_int32();
+        validate(string_pos >= 0 && string_pos < bytefile_.get_string_tab_size(), "string index out of bounds. Bytecode offset: %#X\n");
         std::string_view string = bytefile_.get_string(string_pos);
         push(string);
     }
 
     void state::execute_sexp() {
-        int32_t tag_pos = get_next_int32();
-        int32_t elements_size = get_next_int32();
-        validate(elements_size >= 0, "elements size must be non-negative");
-        validate(tag_pos >= 0 && tag_pos < bytefile_.get_string_tab_size(), "string index out of bounds");
+        int32_t tag_pos = pop_next_int32();
+        int32_t elements_size = pop_next_int32();
+        validate(elements_size >= 0, "elements size must be non-negative. Bytecode offset: %#X\n");
+        validate(tag_pos >= 0 && tag_pos < bytefile_.get_string_tab_size(), "string index out of bounds. Bytecode offset: %#X\n");
         std::string_view tag = bytefile_.get_string(tag_pos);
-        std::vector<aint> elements(elements_size);
-        for (int32_t i = 0; i < elements.size(); ++i) {
-            elements[elements.size() - i - 1] = static_cast<aint>(pop().get_repr());
-        }
-        s_expr s_expression(tag, std::move(elements));
+        std::span<auint> elements(stack_buf.begin() + stack_.size() - elements_size, elements_size + 1);
+        s_expr s_expression(tag, elements);
+        pop(elements_size);
         push(s_expression);
     }
 
     void state::execute_sti() {
         value addr = pop();
-        validate(addr.is_reference(), "STI: argument must be reference");
+        validate(addr.is_reference(), "STI: argument must be reference. Bytecode offset: %#X\n");
         auint* addr_ref = addr.as_reference();
         value val = pop();
         *addr_ref = val.get_repr();
@@ -532,7 +416,7 @@ namespace assignment_02 {
         value val = pop();
         value selector = pop();
         if (!selector.is_integer()) {
-            validate(selector.is_reference(), "STA: argument must be reference");
+            validate(selector.is_reference(), "STA: argument must be reference. Bytecode offset: %#X\n");
             auint* addr_ref = selector.as_reference();
             *addr_ref = val.get_repr();
             push(val);
@@ -540,47 +424,32 @@ namespace assignment_02 {
         }
         int32_t idx_int = selector.as_integer();
         value agg = pop();
-        validate(agg.is_aggregate(), "STA: argument must be aggregate");
+        validate(agg.is_aggregate(), "STA: argument must be aggregate. Bytecode offset: %#X\n");
         aggregate agg_val = agg.as_aggregate();
-        validate(idx_int >= 0 && idx_int < agg_val.get_elements_size(), "STA: index out of bounds");
+        validate(idx_int >= 0 && idx_int < agg_val.get_elements_size(), "STA: index out of bounds. Bytecode offset: %#X\n");
         agg_val.set_element(idx_int, val);
         push(val);
     }
 
     void     state::execute_jmp() {
-        uint32_t addr = get_next_int32();
-        validate(addr <= bytefile_.get_code_size(), "incorrect jump destination");
+        uint32_t addr = pop_next_int32();
+        validate(addr <= bytefile_.get_code_size(), "incorrect jump destination. Bytecode offset: %#X\n");
         ip_ = addr;
-    }
-
-    bool state::execute_end() {
-        value ret = pop();
-        frame current_frame = pop_frame();
-        stack_bottom_ = current_frame.get_base() - current_frame.get_args_size();
-        if (current_frame.is_closure()) {
-            --stack_bottom_;
-        }
-        if (!has_frame()) {
-            return true;
-        }
-        ip_ = peek_frame().get_return_address();
-        update_stack_boundaries();
-        push(ret);
-        return false;
     }
 
     bool state::execute_ret() {
         value ret = pop();
         frame current_frame = pop_frame();
-        stack_bottom_ = current_frame.get_base() - current_frame.get_args_size();
+        stack_ = stack_.subspan(0, current_frame.get_base() - current_frame.get_args_size());
+        __gc_stack_bottom = __gc_stack_top + (current_frame.get_base() - current_frame.get_args_size()) * sizeof(auint);
         if (current_frame.is_closure()) {
-            --stack_bottom_;
+            stack_ = stack_.subspan(0, stack_.size() - 1);
+            __gc_stack_bottom -= sizeof(auint);
         }
         if (!has_frame()) {
             return true;
         }
         ip_ = peek_frame().get_return_address();
-        update_stack_boundaries();
         push(ret);
         return false;
     }
@@ -603,235 +472,220 @@ namespace assignment_02 {
 
     void state::execute_elem() {
         value idx = pop();
-        validate(idx.is_integer(), "index must be integer");
+        validate(idx.is_integer(), "index must be integer. Bytecode offset: %#X\n");
         int32_t idx_int = idx.as_integer();
         value agg = pop();
-        validate(agg.is_aggregate(), "argument must be aggregate");
+        validate(agg.is_aggregate(), "argument must be aggregate. Bytecode offset: %#X\n");
         aggregate agg_val = agg.as_aggregate();
-        validate(idx_int >= 0 && idx_int < agg_val.get_elements_size(), "index out of bounds");
+        validate(idx_int >= 0 && idx_int < agg_val.get_elements_size(), "index out of bounds. Bytecode offset: %#X\n");
         value val = agg_val.get_element(idx_int);
         push(val);
     }
 
     void state::execute_ld_global() {
-        int32_t addr = get_next_int32();
-        validate(addr >= 0 && addr < get_globals_size(), "LD: global index out of bounds");
+        int32_t addr = pop_next_int32();
+        validate(addr >= 0 && addr < get_globals_size(), "LD: global index out of bounds. Bytecode offset: %#X\n");
         value target = get_global(addr);
         push(target);
     }
 
     void state::execute_ld_local() {
-        int32_t addr = get_next_int32();
+        int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_locals_size(), "LD: local index out of bounds");
+        validate(addr >= 0 && addr < current_frame.get_locals_size(), "LD: local index out of bounds. Bytecode offset: %#X\n");
         value target = current_frame.get_local(addr);
         push(target);
     }
 
     void state::execute_ld_argument() {
-        int32_t addr = get_next_int32();
+        int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_args_size(), "LD: argument index out of bounds");
+        validate(addr >= 0 && addr < current_frame.get_args_size(), "LD: argument index out of bounds. Bytecode offset: %#X\n");
         value target = current_frame.get_arg(addr);
         push(target);
     }
 
     void state::execute_ld_captured() {
-        int32_t addr = get_next_int32();
+        int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_captured_vars_size(), "LD: captured index out of bounds");
+        validate(addr >= 0 && addr < current_frame.get_captured_vars_size(), "LD: captured index out of bounds. Bytecode offset: %#X\n");
         value target = current_frame.get_captured_var(addr);
         push(target);
     }
 
     void state::execute_lda_global() {
-        int32_t addr = get_next_int32();
-        validate(addr >= 0 && addr < get_globals_size(), "LDA: global index out of bounds");
+        int32_t addr = pop_next_int32();
+        validate(addr >= 0 && addr < get_globals_size(), "LDA: global index out of bounds. Bytecode offset: %#X\n");
         value target(get_global_reference(addr));
         push(target);
     }
 
     void state::execute_lda_local() {
-        int32_t addr = get_next_int32();
+        int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_locals_size(), "LDA: local index out of bounds");
+        validate(addr >= 0 && addr < current_frame.get_locals_size(), "LDA: local index out of bounds. Bytecode offset: %#X\n");
         value target(current_frame.get_local_reference(addr));
         push(target);
     }
 
     void state::execute_lda_argument() {
-        int32_t addr = get_next_int32();
+        int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_args_size(), "LDA: argument index out of bounds");
+        validate(addr >= 0 && addr < current_frame.get_args_size(), "LDA: argument index out of bounds. Bytecode offset: %#X\n");
         value target(current_frame.get_arg_reference(addr));
         push(target);
     }
 
     void state::execute_lda_captured() {
-        int32_t addr = get_next_int32();
+        int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_captured_vars_size(), "LDA: captured index out of bounds");
+        validate(addr >= 0 && addr < current_frame.get_captured_vars_size(), "LDA: captured index out of bounds. Bytecode offset: %#X\n");
         value target(current_frame.get_captured_var_reference(addr));
         push(target);
     }
 
     void state::execute_st_global() {
         value val = pop();
-        int32_t addr = get_next_int32();
-        validate(addr >= 0 && addr < get_globals_size(), "ST: global index out of bounds");
+        int32_t addr = pop_next_int32();
+        validate(addr >= 0 && addr < get_globals_size(), "ST: global index out of bounds. Bytecode offset: %#X\n");
         set_global(addr, val);
         push(val);
     }
 
     void state::execute_st_local() {
         value val = pop();
-        int32_t addr = get_next_int32();
+        int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_locals_size(), "ST: local index out of bounds");
+        validate(addr >= 0 && addr < current_frame.get_locals_size(), "ST: local index out of bounds. Bytecode offset: %#X\n");
         current_frame.set_local(addr, val);
         push(val);
     }
 
     void state::execute_st_argument() {
         value val = pop();
-        int32_t addr = get_next_int32();
+        int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_args_size(), "ST: argument index out of bounds");
+        validate(addr >= 0 && addr < current_frame.get_args_size(), "ST: argument index out of bounds. Bytecode offset: %#X\n");
         current_frame.set_arg(addr, val);
         push(val);
     }
 
     void state::execute_st_captured() {
         value val = pop();
-        int32_t addr = get_next_int32();
+        int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_captured_vars_size(), "ST: captured index out of bounds");
+        validate(addr >= 0 && addr < current_frame.get_captured_vars_size(), "ST: captured index out of bounds. Bytecode offset: %#X\n");
         current_frame.set_captured_var(addr, val);
         push(val);
     }
 
-    void state::execute_cjmpz() {
-        uint32_t addr = get_next_int32();
-        validate(addr <= bytefile_.get_code_size(), "incorrect cjmpz destination");
+    void state::execute_cjmp(bool nz) {
+        uint32_t addr = pop_next_int32();
+        validate(addr <= bytefile_.get_code_size(), "incorrect cjmpz destination. Bytecode offset: %#X\n");
         value cond = pop();
-        validate(cond.is_integer(), "argument must be integer");
+        validate(cond.is_integer(), "argument must be integer. Bytecode offset: %#X\n");
         int32_t cond_int = cond.as_integer();
-        if (cond_int == 0) {
-            ip_ = addr;
-        }
-    }
-
-    void state::execute_cjmpnz() {
-        uint32_t addr = get_next_int32();
-        validate(addr <= bytefile_.get_code_size(), "incorrect cjmpnz destination");
-        value cond = pop();
-        validate(cond.is_integer(), "argument must be integer");
-        int32_t cond_int = cond.as_integer();
-        if (cond_int != 0) {
+        if (cond_int == nz) {
             ip_ = addr;
         }
     }
 
     void state::execute_begin() {
-        int32_t args_size = get_next_int32();
-        int32_t locals_size = get_next_int32();
-        validate(args_size >= 0, "args size must be non-negative");
-        validate(locals_size >= 0, "locals size must be non-negative");
-        frame new_frame(stack_bottom_, locals_size, args_size, stack_, is_tmp_closure_);
+        int32_t args_size = pop_next_int32();
+        int32_t locals_size = pop_next_int32();
+        validate(args_size >= 0, "args size must be non-negative. Bytecode offset: %#X\n");
+        validate(locals_size >= 0, "locals size must be non-negative. Bytecode offset: %#X\n");
+        frame new_frame(stack_, stack_.size(), locals_size, args_size, is_tmp_closure_);
         is_tmp_closure_ = false;
-        stack_bottom_ += locals_size;
-        if (stack_bottom_ >= stack_.size()) {
-            stack_.resize(std::max(static_cast<size_t>(stack_bottom_), 2 * stack_.size()));
-        }
-        update_stack_boundaries();
+        validate(stack_.size() + locals_size <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
+        stack_ = std::span(stack_buf.begin(), stack_.size() + locals_size);
+        __gc_stack_bottom += locals_size * sizeof(auint);
         push_frame(new_frame);
     }
 
     void state::execute_cbegin() {
-        int32_t args_size = get_next_int32();
-        int32_t locals_size = get_next_int32();
-        validate(args_size >= 0, "args size must be non-negative");
-        validate(locals_size >= 0, "locals size must be non-negative");
-        frame new_frame(stack_bottom_, locals_size, args_size, stack_, true);
-        stack_bottom_ += locals_size;
-        if (stack_bottom_ >= stack_.size()) {
-            stack_.resize(std::max(static_cast<size_t>(stack_bottom_), 2 * stack_.size()));
-        }
-        update_stack_boundaries();
+        int32_t args_size = pop_next_int32();
+        int32_t locals_size = pop_next_int32();
+        validate(args_size >= 0, "args size must be non-negative. Bytecode offset: %#X\n");
+        validate(locals_size >= 0, "locals size must be non-negative. Bytecode offset: %#X\n");
+        frame new_frame(stack_, stack_.size(), locals_size, args_size, true);
+        validate(stack_.size() + locals_size <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
+        stack_ = std::span(stack_buf.begin(), stack_.size() + locals_size);
+        __gc_stack_bottom += locals_size * sizeof(auint);
         push_frame(new_frame);
     }
 
     void state::execute_closure() {
-        int32_t addr = get_next_int32();
-        int32_t captured_size = get_next_int32();
-        validate(addr >= 0 && addr <= bytefile_.get_code_size(), "incorrect closure address");
-        validate(captured_size >= 0, "captured size must be non-negative");
-        std::vector<aint> captured;
-        captured.reserve(captured_size + 1);
-        captured.push_back(static_cast<aint>(to_repr(addr)));
+        int32_t addr = pop_next_int32();
+        int32_t captured_size = pop_next_int32();
+        validate(addr >= 0 && addr <= bytefile_.get_code_size(), "incorrect closure address. Bytecode offset: %#X\n");
+        validate(captured_size >= 0, "captured size must be non-negative. Bytecode offset: %#X\n");
+        push(addr);
         const frame& current_frame = peek_frame();
         for (int32_t i = 0; i < captured_size; ++i) {
-            int8_t capture_type = get_next_int8();
-            int32_t capture_addr = get_next_int32();
-            validate(capture_type >= 0x00 && capture_type <= 0x03, "invalid varspec");
+            int8_t capture_type = pop_next_int8();
+            int32_t capture_addr = pop_next_int32();
+            validate(capture_type >= 0x00 && capture_type <= 0x03, "invalid varspec. Bytecode offset: %#X\n");
             value capture;
             switch (capture_type) {
                 case 0x00:
-                    validate(capture_addr >= 0 && capture_addr < get_globals_size(), "CLOSURE: global index out of bounds");
+                    validate(capture_addr >= 0 && capture_addr < get_globals_size(), "CLOSURE: global index out of bounds. Bytecode offset: %#X\n");
                     capture = get_global(capture_addr);
                     break;
                 case 0x01:
-                    validate(capture_addr >= 0 && capture_addr < current_frame.get_locals_size(), "CLOSURE: local index out of bounds");
+                    validate(capture_addr >= 0 && capture_addr < current_frame.get_locals_size(), "CLOSURE: local index out of bounds. Bytecode offset: %#X\n");
                     capture = current_frame.get_local(capture_addr);
                     break;
                 case 0x02:
-                    validate(capture_addr >= 0 && capture_addr < current_frame.get_args_size(), "CLOSURE: argument index out of bounds");
+                    validate(capture_addr >= 0 && capture_addr < current_frame.get_args_size(), "CLOSURE: argument index out of bounds. Bytecode offset: %#X\n");
                     capture = current_frame.get_arg(capture_addr);
                     break;
                 case 0x03:
-                    validate(capture_addr >= 0 && capture_addr < current_frame.get_captured_vars_size(), "CLOSURE: captured index out of bounds");
+                    validate(capture_addr >= 0 && capture_addr < current_frame.get_captured_vars_size(), "CLOSURE: captured index out of bounds. Bytecode offset: %#X\n");
                     capture = current_frame.get_captured_var(capture_addr);
                     break;
                 default:
-                    validate(false, "invalid varspec for closure");
+                    validate(false, "invalid varspec for closure. Bytecode offset: %#X\n");
             }
-            captured.push_back(static_cast<aint>(capture.get_repr()));
+            push(capture);
         }
-        closure tmp_closure(std::move(captured));
+        std::span<auint> captured = stack_.subspan(stack_.size() - captured_size - 1, captured_size + 1);
+        closure tmp_closure(captured);
+        pop(captured_size + 1);
         push(tmp_closure);
     }
 
     void state::execute_callc() {
-        int32_t args_size = get_next_int32();
-        validate(args_size >= 0, "args size must be non-negative");
+        int32_t args_size = pop_next_int32();
+        validate(args_size >= 0, "args size must be non-negative. Bytecode offset: %#X\n");
         frame& current_frame = peek_frame();
         current_frame.set_return_address(ip_);
         value target = peek(args_size);
-        validate(target.is_closure(), "argument must be closure");
+        validate(target.is_closure(), "argument must be closure. Bytecode offset: %#X\n");
         closure target_closure = target.as_closure();
-        validate(target_closure.get_code_offset() <= bytefile_.get_code_size(), "incorrect callc destination");
+        validate(target_closure.get_code_offset() <= bytefile_.get_code_size(), "incorrect callc destination. Bytecode offset: %#X\n");
         ip_ = target_closure.get_code_offset();
         is_tmp_closure_ = true;
-        validate(get_current_op() == bytecode::BEGIN || get_current_op() == bytecode::CBEGIN, "destination instruction must be begin or cbegin");
+        validate(peek_next_op() == bytecode::BEGIN || peek_next_op() == bytecode::CBEGIN, "destination instruction must be begin or cbegin. Bytecode offset: %#X\n");
     }
 
     void state::execute_call() {
-        int32_t addr = get_next_int32();
-        int32_t args_size = get_next_int32();
-        validate(addr >= 0 && addr <= bytefile_.get_code_size(), "incorrect closure address");
-        validate(args_size >= 0, "args size must be non-negative");
+        int32_t addr = pop_next_int32();
+        int32_t args_size = pop_next_int32();
+        validate(addr >= 0 && addr <= bytefile_.get_code_size(), "incorrect closure address. Bytecode offset: %#X\n");
+        validate(args_size >= 0, "args size must be non-negative. Bytecode offset: %#X\n");
         frame& current_frame = peek_frame();
         current_frame.set_return_address(ip_);
         ip_ = addr;
         is_tmp_closure_ = false;
-        validate(get_current_op() == bytecode::BEGIN, "destination instruction must be begin");
+        validate(peek_next_op() == bytecode::BEGIN, "destination instruction must be begin. Bytecode offset: %#X\n");
     }
 
     void state::execute_tag() {
-        int32_t tag_pos = get_next_int32();
-        int32_t elements_size = get_next_int32();
-        validate(tag_pos >= 0 && tag_pos < bytefile_.get_string_tab_size(), "string index out of bounds");
-        validate(elements_size >= 0, "elements size must be non-negative");
+        int32_t tag_pos = pop_next_int32();
+        int32_t elements_size = pop_next_int32();
+        validate(tag_pos >= 0 && tag_pos < bytefile_.get_string_tab_size(), "string index out of bounds. Bytecode offset: %#X\n");
+        validate(elements_size >= 0, "elements size must be non-negative. Bytecode offset: %#X\n");
         value res(0);
         value val = pop();
         if (val.is_s_expr()) {
@@ -842,22 +696,22 @@ namespace assignment_02 {
     }
 
     void state::execute_array() {
-        int32_t elements_size = get_next_int32();
-        validate(elements_size >= 0, "elements size must be non-negative");
+        int32_t elements_size = pop_next_int32();
+        validate(elements_size >= 0, "elements size must be non-negative. Bytecode offset: %#X\n");
         value val = pop();
         value res(from_repr_t, static_cast<auint>(Barray_patt(static_cast<void*>(val.as_reference()), BOX(elements_size))));
         push(res);
     }
 
     void state::execute_fail() {
-        line_number_ = get_next_int32();
-        uint32_t column_number = get_next_int32();
+        uint32_t line_number = pop_next_int32();
+        uint32_t column_number = pop_next_int32();
         value val = pop();
-        Bmatch_failure(static_cast<void*>(val.as_reference()), const_cast<char*>(bytefile_.get_name().c_str()), static_cast<aint>(line_number_), static_cast<aint>(column_number));
+        Bmatch_failure(static_cast<void*>(val.as_reference()), const_cast<char*>(bytefile_.get_name().data()), static_cast<aint>(line_number), static_cast<aint>(column_number));
     }
 
     void state::execute_line() {
-        line_number_ = get_next_int32();
+        static_cast<void>(pop_next_int32());
     }
 
     void state::execute_patt_str() {
@@ -910,7 +764,7 @@ namespace assignment_02 {
 
     void state::execute_call_lwrite() {
         value val = pop();
-        validate(val.is_integer(), "invalid output");
+        validate(val.is_integer(), "invalid output. Bytecode offset: %#X\n");
         Lwrite(static_cast<aint>(val.get_repr()));
         value ret;
         push(ret);
@@ -918,7 +772,7 @@ namespace assignment_02 {
 
     void state::execute_call_llength() {
         value agg = pop();
-        validate(agg.is_aggregate(), "argument must be aggregate");
+        validate(agg.is_aggregate(), "argument must be aggregate. Bytecode offset: %#X\n");
         int32_t length = static_cast<int32_t>(agg.as_aggregate().get_elements_size());
         push(length);
     }
@@ -929,33 +783,37 @@ namespace assignment_02 {
     }
 
     void state::execute_call_barray() {
-        int32_t elements_size = get_next_int32();
-        validate(elements_size >= 0, "elements size must be non-negative");
-        std::vector<aint> elements(elements_size);
-        for (int32_t i = 0; i < elements.size(); ++i) {
-            elements[elements.size() - i - 1] = static_cast<aint>(pop().get_repr());
-        }
-        array arr(std::move(elements));
+        int32_t elements_size = pop_next_int32();
+        validate(elements_size >= 0, "elements size must be non-negative. Bytecode offset: %#X\n");
+        std::span<auint> elements = stack_.subspan(stack_.size() - elements_size, elements_size);
+        array arr(elements);
+        pop(elements_size);
         push(arr);
     }
 
-    void state::validate(bool condition, const std::string& message) const {
+    void state::validate(bool condition, std::string_view message) const noexcept {
         if (!condition) {
-            throw error(message, line_number_, ip_);
+            failure(const_cast<char*>(message.data()), ip_);
         }
     }
 
-    bytecode state::get_current_op() const {
+    bytecode state::peek_current_op() const {
+        return bytefile_.get_code(ip_ - sizeof(bytecode));
+    }
+
+    bytecode state::peek_next_op() const {
         return bytefile_.get_code(ip_);
     }
 
-    int8_t state::get_next_int8() {
+    int8_t state::pop_next_int8() {
         ++ip_;
+        validate(ip_ < bytefile_.get_code_size(), "Unexpected end of code. Bytecode offset: %#X\n");
         return bytefile_.get_int8(ip_ - sizeof(uint8_t));
     }
 
-    int32_t state::get_next_int32() {
+    int32_t state::pop_next_int32() {
         ip_ += sizeof(int32_t);
+        validate(ip_ < bytefile_.get_code_size(), "Unexpected end of code. Bytecode offset: %#X\n");
         return bytefile_.get_int32(ip_ - sizeof(int32_t));
     }
 
@@ -964,45 +822,49 @@ namespace assignment_02 {
     }
 
     const frame& state::peek_frame() const {
-        return frames_.top();
+        return frames_.back();
     }
 
     frame& state::peek_frame() {
-        return frames_.top();
+        return frames_.back();
     }
 
     void state::push_frame(const frame& frame) {
-        frames_.push(frame);
+        validate(frames_.size() + 1 <= MAX_FRAMES_SIZE, "Frame stack overflow. Bytecode offset: %#X\n");
+        frames_ = std::span{frames_buf.begin(), frames_.size() + 1};
+        frames_[frames_.size() - 1] = frame;
     }
 
     frame state::pop_frame() {
-        frame top_frame = frames_.top();
-        frames_.pop();
-        return top_frame;
+        validate(!frames_.empty(), "Frame stack underflow. Bytecode offset: %#X\n");
+        frame current_frame = frames_.back();
+        frames_ = frames_.subspan(0, frames_.size() - 1);
+        return current_frame;
     }
 
     value state::peek(uint32_t offset) const {
-        return value{from_repr_t, stack_.at(stack_bottom_ - offset - 1)};
+        return value{from_repr_t, stack_[stack_.size() - offset - 1]};
     }
 
     void state::push(value val) {
-        if (stack_bottom_ >= stack_.size()) {
-            stack_.resize(std::max(static_cast<size_t>(1), 2 * stack_.size()));
-        }
-        stack_[stack_bottom_] = val.get_repr();
-        ++stack_bottom_;
-        update_stack_boundaries();
+        validate(stack_.size() + 1 <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
+        stack_ = std::span(stack_buf.begin(), stack_.size() + 1);
+        stack_[stack_.size() - 1] = val.get_repr();
+        __gc_stack_bottom += sizeof(auint);
     }
 
     value state::pop() {
-        validate(stack_bottom_ > 0, "stack underflow");
-        --stack_bottom_;
-        if (4 * stack_bottom_ <= stack_.size()) {
-            stack_.resize(std::max(static_cast<size_t>(1), stack_.size() / 2));
-            stack_.shrink_to_fit();
-        }
-        update_stack_boundaries();
-        return value{from_repr_t, stack_.at(stack_bottom_)};
+        validate(!stack_.empty(), "Stack underflow. Bytecode offset: %#X\n");
+        value val(from_repr_t, stack_.back());
+        stack_ = stack_.subspan(0, stack_.size() - 1);
+        __gc_stack_bottom -= sizeof(auint);
+        return val;
+    }
+
+    void state::pop(uint32_t count) {
+        validate(stack_.size() >= count, "Stack underflow. Bytecode offset: %#X\n");
+        stack_ = stack_.subspan(0, stack_.size() - count);
+        __gc_stack_bottom -= count * sizeof(auint);
     }
 
     uint32_t state::get_globals_size() const noexcept {
@@ -1010,64 +872,37 @@ namespace assignment_02 {
     }
 
     value state::get_global(uint32_t pos) const {
-        return value{from_repr_t, stack_.at(pos)};
+        return value{from_repr_t, stack_[pos]};
     }
 
     value state::get_global_reference(uint32_t pos) const {
-        return value{&stack_.at(pos)};
+        return value{&stack_[pos]};
     }
 
     void state::set_global(uint32_t pos, value global) {
         stack_[pos] = global.get_repr();
     }
 
-    void state::update_stack_boundaries() const noexcept {
-        __gc_stack_top = reinterpret_cast<size_t>(stack_.data());
-        __gc_stack_bottom = reinterpret_cast<size_t>(stack_.data() + stack_bottom_);
-    }
-
     void interpret(const bytefile& file) {
         state interpreter_state(file);
         while (true) {
-            switch (interpreter_state.get_next_op()) {
+            switch (interpreter_state.pop_next_op()) {
                 case bytecode::LOW_ADD:
-                    interpreter_state.execute_low_add();
-                    break;
                 case bytecode::LOW_SUB:
-                    interpreter_state.execute_low_sub();
-                    break;
                 case bytecode::LOW_MUL:
-                    interpreter_state.execute_low_mul();
-                    break;
                 case bytecode::LOW_DIV:
-                    interpreter_state.execute_low_div();
-                    break;
                 case bytecode::LOW_MOD:
-                    interpreter_state.execute_low_mod();
-                    break;
                 case bytecode::LOW_LT:
-                    interpreter_state.execute_low_lt();
-                    break;
                 case bytecode::LOW_LE:
-                    interpreter_state.execute_low_le();
-                    break;
                 case bytecode::LOW_GT:
-                    interpreter_state.execute_low_gt();
-                    break;
                 case bytecode::LOW_GE:
-                    interpreter_state.execute_low_ge();
+                case bytecode::LOW_NE:
+                case bytecode::LOW_AND:
+                case bytecode::LOW_OR:
+                    interpreter_state.execute_binop_high();
                     break;
                 case bytecode::LOW_EQ:
                     interpreter_state.execute_low_eq();
-                    break;
-                case bytecode::LOW_NE:
-                    interpreter_state.execute_low_ne();
-                    break;
-                case bytecode::LOW_AND:
-                    interpreter_state.execute_low_and();
-                    break;
-                case bytecode::LOW_OR:
-                    interpreter_state.execute_low_or();
                     break;
                 case bytecode::CONST:
                     interpreter_state.execute_const();
@@ -1088,10 +923,6 @@ namespace assignment_02 {
                     interpreter_state.execute_jmp();
                     break;
                 case bytecode::END:
-                    if (interpreter_state.execute_end()) {
-                        return;
-                    }
-                    break;
                 case bytecode::RET:
                     if (interpreter_state.execute_ret()) {
                         return;
@@ -1146,10 +977,10 @@ namespace assignment_02 {
                     interpreter_state.execute_st_captured();
                     break;
                 case bytecode::CJMPZ:
-                    interpreter_state.execute_cjmpz();
+                    interpreter_state.execute_cjmp(false);
                     break;
                 case bytecode::CJMPNZ:
-                    interpreter_state.execute_cjmpnz();
+                    interpreter_state.execute_cjmp(true);
                     break;
                 case bytecode::BEGIN:
                     interpreter_state.execute_begin();
@@ -1217,7 +1048,7 @@ namespace assignment_02 {
                 case bytecode::STOP:
                     return;
                 default:
-                    interpreter_state.validate(false, "unknown bytecode");
+                    interpreter_state.validate(false, "unknown bytecode. Bytecode offset: %#X\n");
             }
         }
     }

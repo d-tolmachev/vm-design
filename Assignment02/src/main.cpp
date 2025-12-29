@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
         assignment_02::bytefile file = assignment_02::read_file(argv[1]);
         assignment_02::interpret(file);
     } catch (const std::exception& exc) {
-        std::cerr << "Error: " << exc.what() << std::endl;
+        std::cerr << exc.what() << std::endl;
         return -1;
     }
     return 0;

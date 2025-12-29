@@ -1,7 +1,5 @@
 #include "bytefile.h"
 
-#include <utility>
-
 namespace assignment_02 {
 
     public_symbol::public_symbol(size_t offset, uint32_t address, uint32_t name)
@@ -22,19 +20,13 @@ namespace assignment_02 {
         return name_;
     }
 
-    bytefile::bytefile(const std::string& name)
+    bytefile::bytefile(std::string_view name)
         : name_(name)
         , global_area_size_(0)
         , code_pos_(0) {
     }
 
-    bytefile::bytefile(std::string&& name)
-        : name_(std::move(name))
-        , global_area_size_(0)
-        , code_pos_(0) {
-    }
-
-    const std::string& bytefile::get_name() const noexcept {
+    std::string_view bytefile::get_name() const noexcept {
         return name_;
     }
 

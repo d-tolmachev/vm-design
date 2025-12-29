@@ -10,6 +10,8 @@ extern "C" {
 extern size_t __gc_stack_top;
 extern size_t __gc_stack_bottom;
 
+extern void failure(char* s, ...);
+
 extern aint Llength(void* p);
 
 extern aint LtagHash(char* s);

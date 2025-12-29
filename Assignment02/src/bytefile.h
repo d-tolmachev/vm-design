@@ -2,7 +2,6 @@
 #define BYTEFILE_H
 
 #include <cstdint>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -91,11 +90,9 @@ namespace assignment_02 {
 
     class bytefile {
     public:
-        explicit bytefile(const std::string& name);
+        explicit bytefile(std::string_view name);
 
-        explicit bytefile(std::string&& name);
-
-        [[nodiscard]] const std::string& get_name() const noexcept;
+        [[nodiscard]] std::string_view get_name() const noexcept;
 
         [[nodiscard]] uint32_t get_global_area_size() const noexcept;
 
@@ -130,7 +127,7 @@ namespace assignment_02 {
         int32_t get_int32(uint32_t pos) const;
 
     private:
-        std::string name_;
+        std::string_view name_;
         uint32_t global_area_size_;
         std::vector<public_symbol> public_symbols_;
         std::vector<char> string_tab_;

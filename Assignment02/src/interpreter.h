@@ -1,29 +1,15 @@
 #ifndef INTERPRETER_H
 #define INTERPRETER_H
 
+#include <array>
 #include <cstdint>
-#include <stack>
-#include <stdexcept>
-#include <string>
+#include <span>
 #include <string_view>
-#include <vector>
 
 #include "bytefile.h"
 #include "runtime_interface.h"
 
 namespace assignment_02 {
-
-    class error : public std::exception {
-    public:
-        error(const std::string& message, uint32_t line_number, uint32_t bytecode_offset);
-
-        error(std::string&& message, uint32_t line_number, uint32_t bytecode_offset) noexcept;
-
-        const char* what() const noexcept override;
-
-    private:
-        std::string message_;
-    };
 
     struct from_repr {
     };
@@ -52,34 +38,29 @@ namespace assignment_02 {
     public:
         array(from_repr, auint repr) noexcept;
 
-        explicit array(std::vector<aint>& val);
+        explicit array(std::span<auint> elements);
 
-        explicit array(std::vector<aint>&& val);
+    private:
+        static auint to_array(std::span<auint> elements);
     };
 
     class s_expr : public aggregate {
     public:
         s_expr(from_repr, auint repr) noexcept;
 
-        s_expr(std::string_view tag, std::vector<aint>& elements);
-
-        s_expr(std::string_view tag, std::vector<aint>&& elements);
+        s_expr(std::string_view tag, std::span<auint> elements);
 
         [[nodiscard]] std::string_view get_tag() const noexcept;
 
     private:
-        static auint to_s_expr(std::string_view tag, std::vector<aint>& elements);
-
-        static auint to_s_expr(std::string_view tag, std::vector<aint>&& elements);
+        static auint to_s_expr(std::string_view tag, std::span<auint> elements);
     };
 
     class closure {
     public:
         closure(from_repr, auint repr) noexcept;
 
-        explicit closure(std::vector<aint>& captured);
-
-        explicit closure(std::vector<aint>&& captured);
+        explicit closure(std::span<auint> captured);
 
         [[nodiscard]] auint get_repr() const noexcept;
 
@@ -95,6 +76,8 @@ namespace assignment_02 {
 
     private:
         auint repr_;
+
+        static auint to_closure(std::span<auint> captured);
     };
 
     class value {
@@ -149,7 +132,7 @@ namespace assignment_02 {
 
         [[nodiscard]] closure as_closure() const noexcept;
 
-        [[nodiscard]] value get_string() const;
+        [[nodiscard]] value get_string() const noexcept;
 
     private:
         auint repr_;
@@ -159,7 +142,9 @@ namespace assignment_02 {
 
     class frame {
     public:
-        frame(uint32_t base, uint32_t locals_size, uint32_t args_size, std::vector<auint>& stack, bool is_closure = false) noexcept;
+        frame() noexcept;
+
+        frame(std::span<auint> stack, uint32_t base, uint32_t locals_size, uint32_t args_size, bool is_frame_closure = false) noexcept;
 
         [[nodiscard]] uint32_t get_base() const noexcept;
 
@@ -181,7 +166,7 @@ namespace assignment_02 {
 
         [[nodiscard]] bool is_closure() const noexcept;
 
-        void is_closure(bool is_closure) noexcept;
+        void is_closure(bool is_frame_closure) noexcept;
 
         [[nodiscard]] uint32_t get_captured_vars_size() const noexcept;
 
@@ -196,47 +181,25 @@ namespace assignment_02 {
         void set_return_address(uint32_t return_address) noexcept;
 
     private:
+        std::span<auint> stack_;
         uint32_t base_;
         uint32_t locals_size_;
         uint32_t args_size_;
-        std::vector<auint>& stack_;
-        bool is_closure_;
+        bool is_frame_closure_;
         uint32_t return_address_;
     };
 
     class state {
     public:
-        explicit state(const bytefile& file);
+        explicit state(const bytefile& file) noexcept;
 
         ~state();
 
-        [[nodiscard]] bytecode get_next_op();
+        [[nodiscard]] bytecode pop_next_op();
 
-        void execute_low_add();
-
-        void execute_low_sub();
-
-        void execute_low_mul();
-
-        void execute_low_div();
-
-        void execute_low_mod();
-
-        void execute_low_lt();
-
-        void execute_low_le();
-
-        void execute_low_gt();
-
-        void execute_low_ge();
+        void execute_binop_high();
 
         void execute_low_eq();
-
-        void execute_low_ne();
-
-        void execute_low_and();
-
-        void execute_low_or();
 
         void execute_const();
 
@@ -249,8 +212,6 @@ namespace assignment_02 {
         void execute_sta();
 
         void execute_jmp();
-
-        bool execute_end();
 
         bool execute_ret();
 
@@ -286,9 +247,7 @@ namespace assignment_02 {
 
         void execute_st_captured();
 
-        void execute_cjmpz();
-
-        void execute_cjmpnz();
+        void execute_cjmp(bool nz);
 
         void execute_begin();
 
@@ -332,22 +291,22 @@ namespace assignment_02 {
 
         void execute_call_barray();
 
-        void validate(bool condition, const std::string& message) const;
+        void validate(bool condition, std::string_view message) const noexcept;
 
     private:
         uint32_t ip_;
-        std::stack<frame> frames_;
-        std::vector<auint> stack_;
-        uint32_t stack_bottom_;
+        std::span<frame> frames_;
+        std::span<auint> stack_;
         bool is_tmp_closure_;
         const bytefile& bytefile_;
-        uint32_t line_number_;
 
-        [[nodiscard]] bytecode get_current_op() const;
+        [[nodiscard]] bytecode peek_current_op() const;
 
-        [[nodiscard]] int8_t get_next_int8();
+        [[nodiscard]] bytecode peek_next_op() const;
 
-        [[nodiscard]] int32_t get_next_int32();
+        [[nodiscard]] int8_t pop_next_int8();
+
+        [[nodiscard]] int32_t pop_next_int32();
 
         [[nodiscard]] bool has_frame() const noexcept;
 
@@ -365,6 +324,8 @@ namespace assignment_02 {
 
         value pop();
 
+        void pop(uint32_t count);
+
         [[nodiscard]] uint32_t get_globals_size() const noexcept;
 
         value get_global(uint32_t pos) const;
@@ -372,8 +333,6 @@ namespace assignment_02 {
         value get_global_reference(uint32_t pos) const;
 
         void set_global(uint32_t pos, value global);
-
-        void update_stack_boundaries() const noexcept;
     };
 
     void interpret(const bytefile& file);
