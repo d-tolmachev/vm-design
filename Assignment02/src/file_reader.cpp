@@ -9,7 +9,6 @@
 namespace assignment_02 {
 
     bytefile read_file(std::string_view path) {
-        constexpr static size_t BUF_SIZE = 4096;
         if (!std::filesystem::exists(path)) {
             throw std::runtime_error("File not found");
         }
@@ -62,15 +61,20 @@ namespace assignment_02 {
         }
         file.add_string(string_tab);
         file.set_code_pos(pos);
-        std::vector<bytecode> code(BUF_SIZE);
-        while (is) {
-            is.read(static_cast<char*>(static_cast<void*>(code.data())), static_cast<int64_t>(code.size()));
-            pos += is.gcount();
-            if (is.gcount() < code.size()) {
-                code.resize(is.gcount());
-            }
-            file.add_code(code);
+        is.seekg(0, std::ios::end);
+        int64_t code_size = is.tellg();
+        if (code_size == -1) {
+            throw std::runtime_error("Failed while determining filesize");
         }
+        is.seekg(static_cast<int64_t>(pos), std::ios::beg);
+        code_size -= static_cast<int64_t>(pos);
+        std::vector<bytecode> code(code_size);
+        is.read(static_cast<char*>(static_cast<void*>(code.data())), static_cast<int64_t>(code.size()));
+        pos += is.gcount();
+        if (is.gcount() < code.size()) {
+            throw std::runtime_error("Unexpected end of file");
+        }
+        file.add_code(code);
         return file;
     }
 

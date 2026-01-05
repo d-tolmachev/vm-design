@@ -433,7 +433,7 @@ namespace assignment_02 {
 
     void     state::execute_jmp() {
         uint32_t addr = pop_next_int32();
-        validate(addr <= bytefile_.get_code_size(), "incorrect jump destination. Bytecode offset: %#X\n");
+        validate(addr < bytefile_.get_code_size(), "incorrect jump destination. Bytecode offset: %#X\n");
         ip_ = addr;
     }
 
@@ -581,7 +581,7 @@ namespace assignment_02 {
 
     void state::execute_cjmp(bool nz) {
         uint32_t addr = pop_next_int32();
-        validate(addr <= bytefile_.get_code_size(), "incorrect cjmpz destination. Bytecode offset: %#X\n");
+        validate(addr < bytefile_.get_code_size(), "incorrect cjmpz destination. Bytecode offset: %#X\n");
         value cond = pop();
         validate(cond.is_integer(), "argument must be integer. Bytecode offset: %#X\n");
         int32_t cond_int = cond.as_integer();
@@ -618,7 +618,7 @@ namespace assignment_02 {
     void state::execute_closure() {
         int32_t addr = pop_next_int32();
         int32_t captured_size = pop_next_int32();
-        validate(addr >= 0 && addr <= bytefile_.get_code_size(), "incorrect closure address. Bytecode offset: %#X\n");
+        validate(addr >= 0 && addr < bytefile_.get_code_size(), "incorrect closure address. Bytecode offset: %#X\n");
         validate(captured_size >= 0, "captured size must be non-negative. Bytecode offset: %#X\n");
         push(addr);
         const frame& current_frame = peek_frame();
@@ -663,7 +663,7 @@ namespace assignment_02 {
         value target = peek(args_size);
         validate(target.is_closure(), "argument must be closure. Bytecode offset: %#X\n");
         closure target_closure = target.as_closure();
-        validate(target_closure.get_code_offset() <= bytefile_.get_code_size(), "incorrect callc destination. Bytecode offset: %#X\n");
+        validate(target_closure.get_code_offset() < bytefile_.get_code_size(), "incorrect callc destination. Bytecode offset: %#X\n");
         ip_ = target_closure.get_code_offset();
         is_tmp_closure_ = true;
         validate(peek_next_op() == bytecode::BEGIN || peek_next_op() == bytecode::CBEGIN, "destination instruction must be begin or cbegin. Bytecode offset: %#X\n");
@@ -672,7 +672,7 @@ namespace assignment_02 {
     void state::execute_call() {
         int32_t addr = pop_next_int32();
         int32_t args_size = pop_next_int32();
-        validate(addr >= 0 && addr <= bytefile_.get_code_size(), "incorrect closure address. Bytecode offset: %#X\n");
+        validate(addr >= 0 && addr < bytefile_.get_code_size(), "incorrect closure address. Bytecode offset: %#X\n");
         validate(args_size >= 0, "args size must be non-negative. Bytecode offset: %#X\n");
         frame& current_frame = peek_frame();
         current_frame.set_return_address(ip_);
