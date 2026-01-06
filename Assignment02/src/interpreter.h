@@ -1,13 +1,11 @@
 #ifndef INTERPRETER_H
 #define INTERPRETER_H
 
-#include <array>
 #include <cstdint>
 #include <span>
 #include <string_view>
 
 #include "bytefile.h"
-#include "runtime_interface.h"
 #include "stack.h"
 
 namespace assignment_02 {

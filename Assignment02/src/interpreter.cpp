@@ -1,5 +1,9 @@
 #include "interpreter.h"
 
+#include <array>
+
+#include "runtime_interface.h"
+
 namespace assignment_02 {
 
     constexpr static size_t MAX_FRAMES_SIZE = 0xFFFF;
