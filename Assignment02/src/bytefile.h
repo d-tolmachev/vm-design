@@ -135,6 +135,50 @@ namespace assignment_02 {
         std::vector<bytecode> code_;
     };
 
+    inline size_t public_symbol::get_offset() const {
+        return offset_;
+    }
+
+    inline uint32_t public_symbol::get_address() const {
+        return address_;
+    }
+
+    inline uint32_t public_symbol::get_name() const {
+        return name_;
+    }
+
+    inline std::string_view bytefile::get_name() const noexcept {
+        return name_;
+    }
+
+    inline uint32_t bytefile::get_global_area_size() const noexcept {
+        return global_area_size_;
+    }
+
+    inline void bytefile::set_global_area_size(uint32_t global_area_size) noexcept {
+        global_area_size_ = global_area_size;
+    }
+
+    inline uint32_t bytefile::get_public_symbols_size() const noexcept {
+        return public_symbols_.size();
+    }
+
+    inline uint32_t bytefile::get_string_tab_size() const noexcept {
+        return string_tab_.size();
+    }
+
+    inline uint32_t bytefile::get_code_pos() const noexcept {
+        return code_pos_;
+    }
+
+    inline void bytefile::set_code_pos(uint32_t code_pos) noexcept {
+        code_pos_ = code_pos;
+    }
+
+    inline uint32_t bytefile::get_code_size() const noexcept {
+        return code_.size();
+    }
+
 }
 
 #endif

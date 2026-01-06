@@ -8,38 +8,10 @@ namespace assignment_02 {
         , name_(name) {
     }
 
-    size_t public_symbol::get_offset() const {
-        return offset_;
-    }
-
-    uint32_t public_symbol::get_address() const {
-        return address_;
-    }
-
-    uint32_t public_symbol::get_name() const {
-        return name_;
-    }
-
     bytefile::bytefile(std::string_view name)
         : name_(name)
         , global_area_size_(0)
         , code_pos_(0) {
-    }
-
-    std::string_view bytefile::get_name() const noexcept {
-        return name_;
-    }
-
-    uint32_t bytefile::get_global_area_size() const noexcept {
-        return global_area_size_;
-    }
-
-    void bytefile::set_global_area_size(uint32_t global_area_size) noexcept {
-        global_area_size_ = global_area_size;
-    }
-
-    uint32_t bytefile::get_public_symbols_size() const noexcept {
-        return public_symbols_.size();
     }
 
     public_symbol bytefile::get_public_symbol(uint32_t pos) const {
@@ -48,10 +20,6 @@ namespace assignment_02 {
 
     void bytefile::add_public_symbol(public_symbol symbol) {
         public_symbols_.push_back(symbol);
-    }
-
-    uint32_t bytefile::get_string_tab_size() const noexcept {
-        return string_tab_.size();
     }
 
     std::string_view bytefile::get_string(uint32_t pos) const {
@@ -64,18 +32,6 @@ namespace assignment_02 {
 
     std::string_view bytefile::get_public_symbol_name(uint32_t pos) const {
         return get_string(public_symbols_.at(pos).get_name());
-    }
-
-    uint32_t bytefile::get_code_pos() const noexcept {
-        return code_pos_;
-    }
-
-    void bytefile::set_code_pos(uint32_t code_pos) noexcept {
-        code_pos_ = code_pos;
-    }
-
-    uint32_t bytefile::get_code_size() const noexcept {
-        return code_.size();
     }
 
     bytecode bytefile::get_code(uint32_t pos) const {

@@ -8,6 +8,7 @@
 
 #include "bytefile.h"
 #include "runtime_interface.h"
+#include "stack.h"
 
 namespace assignment_02 {
 
@@ -144,7 +145,7 @@ namespace assignment_02 {
     public:
         frame() noexcept;
 
-        frame(std::span<auint> stack, uint32_t base, uint32_t locals_size, uint32_t args_size, bool is_frame_closure = false) noexcept;
+        frame(stack<auint> stack, uint32_t base, uint32_t locals_size, uint32_t args_size, bool is_frame_closure = false) noexcept;
 
         [[nodiscard]] uint32_t get_base() const noexcept;
 
@@ -181,7 +182,7 @@ namespace assignment_02 {
         void set_return_address(uint32_t return_address) noexcept;
 
     private:
-        std::span<auint> stack_;
+        stack<auint> stack_;
         uint32_t base_;
         uint32_t locals_size_;
         uint32_t args_size_;
@@ -296,7 +297,7 @@ namespace assignment_02 {
     private:
         uint32_t ip_;
         std::span<frame> frames_;
-        std::span<auint> stack_;
+        stack<auint> stack_;
         bool is_tmp_closure_;
         const bytefile& bytefile_;
 
@@ -336,6 +337,102 @@ namespace assignment_02 {
     };
 
     void interpret(const bytefile& file);
+
+    inline auint aggregate::get_repr() const noexcept {
+        return repr_;
+    }
+
+    inline std::string_view s_expr::get_tag() const noexcept {
+        return {reinterpret_cast<char*>(TO_SEXP(reinterpret_cast<void*>(get_repr()))->tag)};
+    }
+
+    inline auint closure::get_repr() const noexcept {
+        return repr_;
+    }
+
+    inline uint32_t closure::get_code_offset() const noexcept {
+        return UNBOX(reinterpret_cast<auint*>(TO_DATA(reinterpret_cast<void*>(repr_))->contents)[0]);
+    }
+
+    inline auint value::get_repr() const noexcept {
+        return repr_;
+    }
+
+    inline bool value::is_empty() const noexcept {
+        return repr_ == 0;
+    }
+
+    inline bool value::is_integer() const noexcept {
+        return (repr_ & 1) != 0;
+    }
+
+    inline bool value::is_reference() const noexcept {
+        return (repr_ & 1) == 0;
+    }
+
+    inline int32_t value::as_integer() const noexcept {
+        return UNBOX(repr_);
+    }
+
+    inline auint* value::as_reference() const noexcept {
+        return reinterpret_cast<auint*>(repr_);
+    }
+
+    inline aggregate value::as_aggregate() const noexcept {
+        return aggregate{from_repr_t, repr_};
+    }
+
+    inline std::string_view value::as_string() const noexcept {
+        return std::string_view{TO_DATA(reinterpret_cast<void*>(repr_))->contents};
+    }
+
+    inline array value::as_array() const noexcept {
+        return array{from_repr_t, repr_};
+    }
+
+    inline s_expr value::as_s_expr() const noexcept {
+        return s_expr{from_repr_t, repr_};
+    }
+
+    inline closure value::as_closure() const noexcept {
+        return closure{from_repr_t, repr_};
+    }
+
+    inline uint32_t frame::get_base() const noexcept {
+        return base_;
+    }
+
+    inline uint32_t frame::get_locals_size() const noexcept {
+        return locals_size_;
+    }
+
+    inline uint32_t frame::get_args_size() const noexcept {
+        return args_size_;
+    }
+
+    inline bool frame::is_closure() const noexcept {
+        return is_frame_closure_;
+    }
+
+    inline void frame::is_closure(bool is_frame_closure) noexcept {
+        is_frame_closure_ = is_frame_closure;
+    }
+
+    inline uint32_t frame::get_return_address() const noexcept {
+        return return_address_;
+    }
+
+    inline void frame::set_return_address(uint32_t return_address) noexcept {
+        return_address_ = return_address;
+    }
+
+    inline bool state::has_frame() const noexcept {
+        return !frames_.empty();
+    }
+
+    inline uint32_t state::get_globals_size() const noexcept {
+        return bytefile_.get_global_area_size();
+    }
 
 }
 

@@ -11,10 +11,6 @@ namespace assignment_02 {
         : repr_(repr) {
     }
 
-    auint aggregate::get_repr() const noexcept {
-        return repr_;
-    }
-
     uint32_t aggregate::get_elements_size() const noexcept {
         return UNBOX(Llength(reinterpret_cast<void*>(repr_)));
     }
@@ -47,10 +43,6 @@ namespace assignment_02 {
         : aggregate(from_repr_t, to_s_expr(tag, elements)) {
     }
 
-    std::string_view s_expr::get_tag() const noexcept {
-        return {reinterpret_cast<char*>(TO_SEXP(reinterpret_cast<void*>(get_repr()))->tag)};
-    }
-
     auint s_expr::to_s_expr(std::string_view tag, std::span<auint> elements) {
         elements[elements.size() - 1] = LtagHash(const_cast<char*>(tag.data()));
         return reinterpret_cast<auint>(Bsexp(static_cast<aint*>(static_cast<void*>(elements.data())), BOX(elements.size())));
@@ -62,14 +54,6 @@ namespace assignment_02 {
 
     closure::closure(std::span<auint> captured)
         : repr_(to_closure(captured)) {
-    }
-
-    auint closure::get_repr() const noexcept {
-        return repr_;
-    }
-
-    uint32_t closure::get_code_offset() const noexcept {
-        return UNBOX(reinterpret_cast<auint*>(TO_DATA(reinterpret_cast<void*>(repr_))->contents)[0]);
     }
 
     uint32_t closure::get_captured_size() const noexcept {
@@ -128,22 +112,6 @@ namespace assignment_02 {
         : repr_(val.get_repr()) {
     }
 
-    auint value::get_repr() const noexcept {
-        return repr_;
-    }
-
-    bool value::is_empty() const noexcept {
-        return repr_ == 0;
-    }
-
-    bool value::is_integer() const noexcept {
-        return (repr_ & 1) != 0;
-    }
-
-    bool value::is_reference() const noexcept {
-        return (repr_ & 1) == 0;
-    }
-
     bool value::is_aggregate() const noexcept {
         return is_string() || is_array() || is_s_expr();
     }
@@ -164,34 +132,6 @@ namespace assignment_02 {
         return is_reference() && get_type_header_ptr(get_obj_header_ptr(reinterpret_cast<void*>(repr_))) == CLOSURE;
     }
 
-    int32_t value::as_integer() const noexcept {
-        return UNBOX(repr_);
-    }
-
-    auint* value::as_reference() const noexcept {
-        return reinterpret_cast<auint*>(repr_);
-    }
-
-    aggregate value::as_aggregate() const noexcept {
-        return aggregate{from_repr_t, repr_};
-    }
-
-    std::string_view value::as_string() const noexcept {
-        return std::string_view{TO_DATA(reinterpret_cast<void*>(repr_))->contents};
-    }
-
-    array value::as_array() const noexcept {
-        return array{from_repr_t, repr_};
-    }
-
-    s_expr value::as_s_expr() const noexcept {
-        return s_expr{from_repr_t, repr_};
-    }
-
-    closure value::as_closure() const noexcept {
-        return closure{from_repr_t, repr_};
-    }
-
     value value::get_string() const noexcept {
         std::array<aint, 1> values{static_cast<aint>(repr_)};
         return value{static_cast<auint*>(Lstring(values.data()))};
@@ -210,21 +150,13 @@ namespace assignment_02 {
         , return_address_(static_cast<uint32_t>(-1)) {
     }
 
-    frame::frame(std::span<auint> stack, uint32_t base, uint32_t locals_size, uint32_t args_size, bool is_frame_closure) noexcept
+    frame::frame(stack<auint> stack, uint32_t base, uint32_t locals_size, uint32_t args_size, bool is_frame_closure) noexcept
         : stack_(stack)
         , base_(base)
         , locals_size_(locals_size)
         , args_size_(args_size)
         , is_frame_closure_(is_frame_closure)
         , return_address_(static_cast<uint32_t>(-1)) {
-    }
-
-    uint32_t frame::get_base() const noexcept {
-        return base_;
-    }
-
-    uint32_t frame::get_locals_size() const noexcept {
-        return locals_size_;
     }
 
     value frame::get_local(uint32_t pos) const {
@@ -239,10 +171,6 @@ namespace assignment_02 {
         stack_[base_ + pos] = local.get_repr();
     }
 
-    uint32_t frame::get_args_size() const noexcept {
-        return args_size_;
-    }
-
     value frame::get_arg(uint32_t pos) const {
         return value{from_repr_t, stack_[base_ - args_size_ + pos]};
     }
@@ -253,14 +181,6 @@ namespace assignment_02 {
 
     void frame::set_arg(uint32_t pos, value arg) {
         stack_[base_ - args_size_ + pos] = arg.get_repr();
-    }
-
-    bool frame::is_closure() const noexcept {
-        return is_frame_closure_;
-    }
-
-    void frame::is_closure(bool is_frame_closure) noexcept {
-        is_frame_closure_ = is_frame_closure;
     }
 
     uint32_t frame::get_captured_vars_size() const noexcept {
@@ -283,24 +203,14 @@ namespace assignment_02 {
         frame_closure.set_capture(pos, captured_var);
     }
 
-    uint32_t frame::get_return_address() const noexcept {
-        return return_address_;
-    }
-
-    void frame::set_return_address(uint32_t return_address) noexcept {
-        return_address_ = return_address;
-    }
-
     state::state(const bytefile& file) noexcept
         : ip_(0)
         , frames_(frames_buf.begin(), 0)
-        , stack_(stack_buf.begin(), file.get_global_area_size() + 2)
+        , stack_(stack_buf.data(), file.get_global_area_size() + 2)
         , is_tmp_closure_(false)
         , bytefile_(file) {
         validate(stack_.size() < MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
         __init();
-        __gc_stack_top = reinterpret_cast<size_t>(stack_.data());
-        __gc_stack_bottom = reinterpret_cast<size_t>(stack_.data() + stack_.size());
     }
 
     state::~state() {
@@ -440,11 +350,9 @@ namespace assignment_02 {
     bool state::execute_ret() {
         value ret = pop();
         frame current_frame = pop_frame();
-        stack_ = stack_.subspan(0, current_frame.get_base() - current_frame.get_args_size());
-        __gc_stack_bottom = __gc_stack_top + (current_frame.get_base() - current_frame.get_args_size()) * sizeof(auint);
+        stack_ = stack{stack_buf.data(), current_frame.get_base() - current_frame.get_args_size()};
         if (current_frame.is_closure()) {
-            stack_ = stack_.subspan(0, stack_.size() - 1);
-            __gc_stack_bottom -= sizeof(auint);
+            stack_ = stack{stack_buf.data(), stack_.size() - 1};
         }
         if (!has_frame()) {
             return true;
@@ -598,8 +506,7 @@ namespace assignment_02 {
         frame new_frame(stack_, stack_.size(), locals_size, args_size, is_tmp_closure_);
         is_tmp_closure_ = false;
         validate(stack_.size() + locals_size <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
-        stack_ = std::span(stack_buf.begin(), stack_.size() + locals_size);
-        __gc_stack_bottom += locals_size * sizeof(auint);
+        stack_ = stack{stack_buf.data(), stack_.size() + locals_size};
         push_frame(new_frame);
     }
 
@@ -610,8 +517,7 @@ namespace assignment_02 {
         validate(locals_size >= 0, "locals size must be non-negative. Bytecode offset: %#X\n");
         frame new_frame(stack_, stack_.size(), locals_size, args_size, true);
         validate(stack_.size() + locals_size <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
-        stack_ = std::span(stack_buf.begin(), stack_.size() + locals_size);
-        __gc_stack_bottom += locals_size * sizeof(auint);
+        stack_ = stack{stack_buf.data(), stack_.size() + locals_size};
         push_frame(new_frame);
     }
 
@@ -649,7 +555,7 @@ namespace assignment_02 {
             }
             push(capture);
         }
-        std::span<auint> captured = stack_.subspan(stack_.size() - captured_size - 1, captured_size + 1);
+        std::span<auint> captured(stack_.end() - captured_size - 1, captured_size + 1);
         closure tmp_closure(captured);
         pop(captured_size + 1);
         push(tmp_closure);
@@ -785,7 +691,7 @@ namespace assignment_02 {
     void state::execute_call_barray() {
         int32_t elements_size = pop_next_int32();
         validate(elements_size >= 0, "elements size must be non-negative. Bytecode offset: %#X\n");
-        std::span<auint> elements = stack_.subspan(stack_.size() - elements_size, elements_size);
+        std::span<auint> elements(stack_.end() - elements_size, elements_size);
         array arr(elements);
         pop(elements_size);
         push(arr);
@@ -817,10 +723,6 @@ namespace assignment_02 {
         return bytefile_.get_int32(ip_ - sizeof(int32_t));
     }
 
-    bool state::has_frame() const noexcept {
-        return !frames_.empty();
-    }
-
     const frame& state::peek_frame() const {
         return frames_.back();
     }
@@ -843,32 +745,22 @@ namespace assignment_02 {
     }
 
     value state::peek(uint32_t offset) const {
-        return value{from_repr_t, stack_[stack_.size() - offset - 1]};
+        return value{from_repr_t, stack_.top(offset)};
     }
 
     void state::push(value val) {
         validate(stack_.size() + 1 <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
-        stack_ = std::span(stack_buf.begin(), stack_.size() + 1);
-        stack_[stack_.size() - 1] = val.get_repr();
-        __gc_stack_bottom += sizeof(auint);
+        stack_.push(val.get_repr());
     }
 
     value state::pop() {
         validate(!stack_.empty(), "Stack underflow. Bytecode offset: %#X\n");
-        value val(from_repr_t, stack_.back());
-        stack_ = stack_.subspan(0, stack_.size() - 1);
-        __gc_stack_bottom -= sizeof(auint);
-        return val;
+        return value{from_repr_t, stack_.pop()};
     }
 
     void state::pop(uint32_t count) {
         validate(stack_.size() >= count, "Stack underflow. Bytecode offset: %#X\n");
-        stack_ = stack_.subspan(0, stack_.size() - count);
-        __gc_stack_bottom -= count * sizeof(auint);
-    }
-
-    uint32_t state::get_globals_size() const noexcept {
-        return bytefile_.get_global_area_size();
+        stack_.pop(count);
     }
 
     value state::get_global(uint32_t pos) const {
