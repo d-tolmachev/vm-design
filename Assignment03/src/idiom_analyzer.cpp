@@ -4,10 +4,8 @@
 #include <cstdio>
 #include <iomanip>
 #include <iostream>
-#include <iterator>
 #include <span>
 #include <sstream>
-#include <string_view>
 
 #include "byterun_interface.h"
 
@@ -26,19 +24,6 @@ namespace assignment_03 {
     idiom::idiom(uint32_t pos, uint32_t size)
         : pos_(pos)
         , size_(size) {
-    }
-
-    idiom_hasher::idiom_hasher(const bytefile& file) noexcept
-        : bytefile_(file) {
-    }
-
-    size_t idiom_hasher::operator()(idiom value) const noexcept {
-        uint32_t length = 0;
-        for (uint32_t i = 0; i < value.get_size(); ++i) {
-            length += disassemble_instruction(stdin, bytefile_.get_base(), static_cast<int>(value.get_pos() + length));
-        }
-        std::span<const bytecode> bytes = bytefile_.get_bytes(value.get_pos(), length);
-        return std::hash<std::string_view>{}(std::string_view{static_cast<const char*>(static_cast<const void*>(bytes.data())), bytes.size()});
     }
 
     idiom_equal::idiom_equal(const bytefile& file) noexcept
@@ -101,12 +86,10 @@ namespace assignment_03 {
     }
 
     idiom_processor::idiom_processor(const bytefile& file)
-        : reachable_(file.get_code_size())
+        : reachable_(file.get_code_size() + 1)
         , jump_targets_(file.get_code_size())
-        , idiom_hasher_(file)
-        , idiom_equal_(file)
-        , idioms_frequency_(16, idiom_hasher_, idiom_equal_)
         , bytefile_(file) {
+        reachable_[reachable_.size() - 1] = true;
     }
 
     void idiom_processor::find_reachable_instructions() {
@@ -115,8 +98,8 @@ namespace assignment_03 {
             public_symbol symbol = bytefile_.get_public_symbol(i);
             validate(symbol.get_address() < bytefile_.get_code_size(), "Invalid symbol offset", symbol.get_address());
             if (!reachable_.at(symbol.get_address())) {
-                reachable_[symbol.get_address()] = true;
                 jump_targets_[symbol.get_address()] = true;
+                reachable_[symbol.get_address()] = true;
                 workset.push_back(symbol.get_address());
             }
         }
@@ -135,9 +118,14 @@ namespace assignment_03 {
                     workset.push_back(target);
                 }
             }
-            if (!is_terminal(op) && !reachable_.at(addr + length)) {
-                reachable_[addr + length] = true;
-                workset.push_back(addr + length);
+            if (!is_terminal(op)) {
+                if (is_call(op)) {
+                    jump_targets_[addr + length] = true;
+                }
+                if (!reachable_.at(addr + length)) {
+                    reachable_[addr + length] = true;
+                    workset.push_back(addr + length);
+                }
             }
         }
     }
@@ -145,7 +133,7 @@ namespace assignment_03 {
     void idiom_processor::find_idioms() {
         uint32_t addr = 0;
         while (addr < bytefile_.get_code_size()) {
-            while (addr < reachable_.size() && !reachable_.at(addr)) {
+            while (!reachable_.at(addr)) {
                 ++addr;
             }
             if (addr >= bytefile_.get_code_size()) {
@@ -154,28 +142,35 @@ namespace assignment_03 {
             bytecode op = get_op(addr);
             uint32_t length = disassemble_instruction(stdin, bytefile_.get_base(), static_cast<int>(addr));
             validate(addr + length < bytefile_.get_code_size(), "Unexpected end of code", addr + length);
-            ++idioms_frequency_[idiom{addr, 1}];
+            idioms_.emplace_back(addr, 1);
             if (!is_call(op) && !is_terminal(op) && reachable_.at(addr + length) && !jump_targets_.at(addr + length)) {
                 uint32_t next_length = disassemble_instruction(stdin, bytefile_.get_base(), static_cast<int>(addr + length));
                 validate(addr + length + next_length < bytefile_.get_code_size(), "Unexpected end of code", addr + length + next_length);
-                ++idioms_frequency_[idiom{addr, 2}];
+                idioms_.emplace_back(addr, 2);
             }
             addr += length;
         }
     }
 
-    std::vector<std::pair<size_t, idiom>> idiom_processor::sort_idioms() const {
-        auto transform = [](const std::pair<idiom, size_t>& element) {
-            return std::pair<size_t, idiom>{element.second, element.first};
-        };
+    std::vector<std::pair<size_t, idiom>> idiom_processor::sort_idioms() {
         auto compare = [comparator = idiom_comparator{bytefile_}](const std::pair<size_t, idiom>& lhs, const std::pair<size_t, idiom>& rhs) {
             return lhs.first > rhs.first || (lhs.first == rhs.first && comparator(lhs.second, rhs.second));
         };
-        std::vector<std::pair<size_t, idiom>> idioms;
-        idioms.reserve(idioms_frequency_.size());
-        std::transform(idioms_frequency_.begin(), idioms_frequency_.end(), std::back_inserter(idioms), transform);
-        std::sort(idioms.begin(), idioms.end(), compare);
-        return idioms;
+        idiom_equal equal(bytefile_);
+        std::vector<std::pair<size_t, idiom>> idioms_frequency;
+        std::sort(idioms_.begin(), idioms_.end(), idiom_comparator{bytefile_});
+        size_t frequency = 1;
+        for (size_t i = 1; i < idioms_.size(); ++i) {
+            if (!equal(idioms_.at(i - 1), idioms_.at(i))) {
+                idioms_frequency.emplace_back(frequency, idioms_.at(i - 1));
+                frequency = 1;
+            } else {
+                ++frequency;
+            }
+        }
+        idioms_frequency.emplace_back(frequency, idioms_.back());
+        std::sort(idioms_frequency.begin(), idioms_frequency.end(), compare);
+        return idioms_frequency;
     }
 
     bytecode idiom_processor::get_op(uint32_t pos) const {

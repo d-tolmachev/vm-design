@@ -4,7 +4,6 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -83,14 +82,12 @@ namespace assignment_03 {
 
         void find_idioms();
 
-        std::vector<std::pair<size_t, idiom>> sort_idioms() const;
+        std::vector<std::pair<size_t, idiom>> sort_idioms();
 
     private:
         std::vector<bool> reachable_;
         std::vector<bool> jump_targets_;
-        idiom_hasher idiom_hasher_;
-        idiom_equal idiom_equal_;
-        std::unordered_map<idiom, size_t, idiom_hasher, idiom_equal> idioms_frequency_;
+        std::vector<idiom> idioms_;
         const bytefile& bytefile_;
 
         [[nodiscard]] bytecode get_op(uint32_t pos) const;
