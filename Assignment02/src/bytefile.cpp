@@ -2,10 +2,10 @@
 
 namespace assignment_02 {
 
-    public_symbol::public_symbol(size_t offset, uint32_t address, uint32_t name)
+    public_symbol::public_symbol(size_t offset, uint32_t name, uint32_t address) noexcept
         : offset_(offset)
-        , address_(address)
-        , name_(name) {
+        , name_(name)
+        , address_(address) {
     }
 
     bytefile::bytefile(std::string_view name)
@@ -23,7 +23,7 @@ namespace assignment_02 {
     }
 
     std::string_view bytefile::get_string(uint32_t pos) const {
-        return {&string_tab_.at(pos)};
+        return std::string_view{&string_tab_.at(pos)};
     }
 
     void bytefile::add_string(const std::vector<char>& string) {
@@ -48,6 +48,10 @@ namespace assignment_02 {
 
     int32_t bytefile::get_int32(uint32_t pos) const {
         return *static_cast<const int32_t*>(static_cast<const void*>(&code_.at(pos)));
+    }
+
+    std::span<const bytecode> bytefile::get_bytes(uint32_t pos, uint32_t count) const {
+        return std::span<const bytecode>{code_.begin() + pos, count};
     }
 
 }

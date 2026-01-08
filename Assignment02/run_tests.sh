@@ -4,9 +4,9 @@ LAMAC=lamac
 ASSIGNMENT02="$(pwd)/build/assignment02"
 DIFF=diff
 TIME="/usr/bin/time"
-RUNTIME_DIR="$(pwd)/runtime"
-REGRESSION_TESTS_DIR="$(pwd)/tests/regression"
-PERFORMANCE_TESTS_DIR="$(pwd)/tests/performance"
+RUNTIME_DIR="$(pwd)/../runtime"
+REGRESSION_TESTS_DIR="$(pwd)/../tests/regression"
+PERFORMANCE_TESTS_DIR="$(pwd)/../tests/performance"
 FAILED_TESTS=()
 
 print_status_and_record () {

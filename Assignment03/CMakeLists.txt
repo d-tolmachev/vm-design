@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.8)
 
-project(Assignment02)
+project(Assignment03)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -27,13 +27,19 @@ set_target_properties(runtime PROPERTIES
         IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/../runtime/runtime.a
 )
 
-add_executable(Assignment02
+add_library(byterun STATIC
+        ../byterun/byterun.c
+)
+
+target_include_directories(byterun PRIVATE ${PROJECT_SOURCE_DIR}/../runtime)
+target_link_libraries(byterun PRIVATE runtime)
+
+add_executable(Assignment03
         src/bytefile.cpp
         src/file_reader.cpp
-        src/interpreter.cpp
+        src/idiom_analyzer.cpp
         src/main.cpp
 )
 
-target_include_directories(Assignment02 PRIVATE ${PROJECT_SOURCE_DIR}/../runtime)
-target_link_libraries(Assignment02 PRIVATE runtime)
-target_link_options(Assignment02 PRIVATE "LINKER:--defsym=__start_custom_data=0" "LINKER:--defsym=__stop_custom_data=0")
+target_include_directories(Assignment03 PRIVATE ${PROJECT_SOURCE_DIR}/../runtime)
+target_link_libraries(Assignment03 PRIVATE byterun)
