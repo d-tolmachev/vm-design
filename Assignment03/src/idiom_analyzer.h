@@ -108,7 +108,7 @@ namespace assignment_03 {
 
     void analyze_idioms(const bytefile& file);
 
-    uint32_t inline idiom::get_pos() const noexcept {
+    inline uint32_t idiom::get_pos() const noexcept {
         return pos_;
     }
 

@@ -98,7 +98,7 @@ int disassemble_instruction(FILE *f, bytefile *bf, int pos)
        h = (x & 0xF0) >> 4,
        l = x & 0x0F;
 
-  fprintf(f, "0x%.8x:\t", ip - bf->code_ptr + pos - 1);
+  fprintf(f, "0x%.8x:\t", pos);
 
   switch (h)
   {
