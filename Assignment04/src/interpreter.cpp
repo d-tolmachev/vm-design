@@ -4,7 +4,7 @@
 
 #include "runtime_interface.h"
 
-namespace assignment_02 {
+namespace assignment_04 {
 
     constexpr static size_t MAX_FRAMES_SIZE = 0xFFFF;
     static std::array<frame, MAX_FRAMES_SIZE> frames_buf;
@@ -219,12 +219,6 @@ namespace assignment_02 {
         __shutdown();
     }
 
-    bytecode state::pop_next_op() {
-        ++ip_;
-        validate(ip_ < bytefile_.get_code_size(), "Unexpected end of code. Bytecode offset: %#X\n");
-        return bytefile_.get_code(ip_ - sizeof(bytecode));
-    }
-
     void state::execute_binop_high() {
         int32_t res = 0;
         value rhs = pop();
@@ -298,7 +292,6 @@ namespace assignment_02 {
 
     void state::execute_string() {
         int32_t string_pos = pop_next_int32();
-        validate(string_pos >= 0 && string_pos < bytefile_.get_string_tab_size(), "STRING: index out of bounds. Bytecode offset: %#X\n");
         std::string_view string = bytefile_.get_string(string_pos);
         push(string);
     }
@@ -306,8 +299,6 @@ namespace assignment_02 {
     void state::execute_sexp() {
         int32_t tag_pos = pop_next_int32();
         int32_t elements_size = pop_next_int32();
-        validate(elements_size >= 0, "SEXP: elements size must be non-negative. Bytecode offset: %#X\n");
-        validate(tag_pos >= 0 && tag_pos < bytefile_.get_string_tab_size(), "SEXP: index out of bounds. Bytecode offset: %#X\n");
         std::string_view tag = bytefile_.get_string(tag_pos);
         std::span<auint> elements(stack_buf.begin() + stack_.size() - elements_size, elements_size + 1);
         s_expr s_expression(tag, elements);
@@ -344,8 +335,7 @@ namespace assignment_02 {
     }
 
     void     state::execute_jmp() {
-        int32_t addr = pop_next_int32();
-        validate(addr >= 0 && addr < bytefile_.get_code_size(), "JMP: incorrect destination. Bytecode offset: %#X\n");
+        uint32_t addr = pop_next_int32();
         ip_ = addr;
     }
 
@@ -394,7 +384,6 @@ namespace assignment_02 {
 
     void state::execute_ld_global() {
         int32_t addr = pop_next_int32();
-        validate(addr >= 0 && addr < get_globals_size(), "LD: global index out of bounds. Bytecode offset: %#X\n");
         value target = get_global(addr);
         push(target);
     }
@@ -402,7 +391,6 @@ namespace assignment_02 {
     void state::execute_ld_local() {
         int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_locals_size(), "LD: local index out of bounds. Bytecode offset: %#X\n");
         value target = current_frame.get_local(addr);
         push(target);
     }
@@ -410,13 +398,12 @@ namespace assignment_02 {
     void state::execute_ld_argument() {
         int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_args_size(), "LD: argument index out of bounds. Bytecode offset: %#X\n");
         value target = current_frame.get_arg(addr);
         push(target);
     }
 
     void state::execute_ld_captured() {
-        int32_t addr = pop_next_int32();
+        int32_t addr = pop_next_int32<true>();
         frame& current_frame = peek_frame();
         validate(addr >= 0 && addr < current_frame.get_captured_vars_size(), "LD: captured index out of bounds. Bytecode offset: %#X\n");
         value target = current_frame.get_captured_var(addr);
@@ -425,7 +412,6 @@ namespace assignment_02 {
 
     void state::execute_lda_global() {
         int32_t addr = pop_next_int32();
-        validate(addr >= 0 && addr < get_globals_size(), "LDA: global index out of bounds. Bytecode offset: %#X\n");
         value target(get_global_reference(addr));
         push(target);
     }
@@ -433,7 +419,6 @@ namespace assignment_02 {
     void state::execute_lda_local() {
         int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_locals_size(), "LDA: local index out of bounds. Bytecode offset: %#X\n");
         value target(current_frame.get_local_reference(addr));
         push(target);
     }
@@ -441,13 +426,12 @@ namespace assignment_02 {
     void state::execute_lda_argument() {
         int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_args_size(), "LDA: argument index out of bounds. Bytecode offset: %#X\n");
         value target(current_frame.get_arg_reference(addr));
         push(target);
     }
 
     void state::execute_lda_captured() {
-        int32_t addr = pop_next_int32();
+        int32_t addr = pop_next_int32<true>();
         frame& current_frame = peek_frame();
         validate(addr >= 0 && addr < current_frame.get_captured_vars_size(), "LDA: captured index out of bounds. Bytecode offset: %#X\n");
         value target(current_frame.get_captured_var_reference(addr));
@@ -457,7 +441,6 @@ namespace assignment_02 {
     void state::execute_st_global() {
         value val = pop();
         int32_t addr = pop_next_int32();
-        validate(addr >= 0 && addr < get_globals_size(), "ST: global index out of bounds. Bytecode offset: %#X\n");
         set_global(addr, val);
         push(val);
     }
@@ -466,7 +449,6 @@ namespace assignment_02 {
         value val = pop();
         int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_locals_size(), "ST: local index out of bounds. Bytecode offset: %#X\n");
         current_frame.set_local(addr, val);
         push(val);
     }
@@ -475,14 +457,13 @@ namespace assignment_02 {
         value val = pop();
         int32_t addr = pop_next_int32();
         frame& current_frame = peek_frame();
-        validate(addr >= 0 && addr < current_frame.get_args_size(), "ST: argument index out of bounds. Bytecode offset: %#X\n");
         current_frame.set_arg(addr, val);
         push(val);
     }
 
     void state::execute_st_captured() {
         value val = pop();
-        int32_t addr = pop_next_int32();
+        int32_t addr = pop_next_int32<true>();
         frame& current_frame = peek_frame();
         validate(addr >= 0 && addr < current_frame.get_captured_vars_size(), "ST: captured index out of bounds. Bytecode offset: %#X\n");
         current_frame.set_captured_var(addr, val);
@@ -490,8 +471,7 @@ namespace assignment_02 {
     }
 
     void state::execute_cjmp(bool nz) {
-        int32_t addr = pop_next_int32();
-        validate(addr >= 0 && addr < bytefile_.get_code_size(), "CJMPZ/CJMPNZ: incorrect destination. Bytecode offset: %#X\n");
+        uint32_t addr = pop_next_int32();
         value cond = pop();
         validate(cond.is_integer(), "CJMPZ/CJMPNZ: argument must be integer. Bytecode offset: %#X\n");
         int32_t cond_int = cond.as_integer();
@@ -503,11 +483,11 @@ namespace assignment_02 {
     void state::execute_begin() {
         int32_t args_size = pop_next_int32();
         int32_t locals_size = pop_next_int32();
-        validate(args_size >= 0, "BEGIN: args size must be non-negative. Bytecode offset: %#X\n");
-        validate(locals_size >= 0, "BEGIN: locals size must be non-negative. Bytecode offset: %#X\n");
+        int32_t frame_stack_size = (locals_size >> 16) & 0xFFFF;
+        locals_size &= 0xFFFF;
         frame new_frame(stack_, stack_.size(), locals_size, args_size, is_tmp_closure_);
         is_tmp_closure_ = false;
-        validate(stack_.size() + locals_size <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
+        validate(stack_.size() + frame_stack_size <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
         stack_ = stack{stack_buf.data(), stack_.size() + locals_size};
         push_frame(new_frame);
     }
@@ -515,10 +495,10 @@ namespace assignment_02 {
     void state::execute_cbegin() {
         int32_t args_size = pop_next_int32();
         int32_t locals_size = pop_next_int32();
-        validate(args_size >= 0, "CBEGIN: args size must be non-negative. Bytecode offset: %#X\n");
-        validate(locals_size >= 0, "CBEGIN: locals size must be non-negative. Bytecode offset: %#X\n");
+        int32_t frame_stack_size = (locals_size >> 16) & 0xFFFF;
+        locals_size &= 0xFFFF;
         frame new_frame(stack_, stack_.size(), locals_size, args_size, true);
-        validate(stack_.size() + locals_size <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
+        validate(stack_.size() + frame_stack_size <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
         stack_ = stack{stack_buf.data(), stack_.size() + locals_size};
         push_frame(new_frame);
     }
@@ -526,8 +506,6 @@ namespace assignment_02 {
     void state::execute_closure() {
         int32_t addr = pop_next_int32();
         int32_t captured_size = pop_next_int32();
-        validate(addr >= 0 && addr < bytefile_.get_code_size(), "CLOSURE: incorrect address. Bytecode offset: %#X\n");
-        validate(captured_size >= 0, "CLOSURE: captured size must be non-negative. Bytecode offset: %#X\n");
         push(addr);
         const frame& current_frame = peek_frame();
         for (int32_t i = 0; i < captured_size; ++i) {
@@ -536,15 +514,12 @@ namespace assignment_02 {
             value capture;
             switch (capture_type) {
                 case varspec::GLOBAL:
-                    validate(capture_addr >= 0 && capture_addr < get_globals_size(), "CLOSURE: global index out of bounds. Bytecode offset: %#X\n");
                     capture = get_global(capture_addr);
                     break;
                 case varspec::LOCAL:
-                    validate(capture_addr >= 0 && capture_addr < current_frame.get_locals_size(), "CLOSURE: local index out of bounds. Bytecode offset: %#X\n");
                     capture = current_frame.get_local(capture_addr);
                     break;
                 case varspec::ARGUMENT:
-                    validate(capture_addr >= 0 && capture_addr < current_frame.get_args_size(), "CLOSURE: argument index out of bounds. Bytecode offset: %#X\n");
                     capture = current_frame.get_arg(capture_addr);
                     break;
                 case varspec::CAPTURED:
@@ -564,7 +539,6 @@ namespace assignment_02 {
 
     void state::execute_callc() {
         int32_t args_size = pop_next_int32();
-        validate(args_size >= 0, "CALLC: args size must be non-negative. Bytecode offset: %#X\n");
         frame& current_frame = peek_frame();
         current_frame.set_return_address(ip_);
         value target = peek(args_size);
@@ -579,8 +553,7 @@ namespace assignment_02 {
     void state::execute_call() {
         int32_t addr = pop_next_int32();
         int32_t args_size = pop_next_int32();
-        validate(addr >= 0 && addr < bytefile_.get_code_size(), "CALL: incorrect destination. Bytecode offset: %#X\n");
-        validate(args_size >= 0, "CALL: args size must be non-negative. Bytecode offset: %#X\n");
+        static_cast<void>(args_size);
         frame& current_frame = peek_frame();
         current_frame.set_return_address(ip_);
         ip_ = addr;
@@ -591,8 +564,6 @@ namespace assignment_02 {
     void state::execute_tag() {
         int32_t tag_pos = pop_next_int32();
         int32_t elements_size = pop_next_int32();
-        validate(tag_pos >= 0 && tag_pos < bytefile_.get_string_tab_size(), "TAG: index out of bounds. Bytecode offset: %#X\n");
-        validate(elements_size >= 0, "TAG: elements size must be non-negative. Bytecode offset: %#X\n");
         value res(0);
         value val = pop();
         if (val.is_s_expr()) {
@@ -604,7 +575,6 @@ namespace assignment_02 {
 
     void state::execute_array() {
         int32_t elements_size = pop_next_int32();
-        validate(elements_size >= 0, "ARRAY: elements size must be non-negative. Bytecode offset: %#X\n");
         value val = pop();
         value res(from_repr_t, static_cast<auint>(Barray_patt(static_cast<void*>(val.as_reference()), BOX(elements_size))));
         push(res);
@@ -691,7 +661,6 @@ namespace assignment_02 {
 
     void state::execute_call_barray() {
         int32_t elements_size = pop_next_int32();
-        validate(elements_size >= 0, "CALL_BARRAY: elements size must be non-negative. Bytecode offset: %#X\n");
         std::span<auint> elements(stack_.end() - elements_size, elements_size);
         array arr(elements);
         pop(elements_size);
@@ -710,18 +679,6 @@ namespace assignment_02 {
 
     bytecode state::peek_next_op() const {
         return bytefile_.get_code(ip_);
-    }
-
-    varspec state::pop_next_varspec() {
-        ++ip_;
-        validate(ip_ < bytefile_.get_code_size(), "Unexpected end of code. Bytecode offset: %#X\n");
-        return bytefile_.get_varspec(ip_ - sizeof(varspec));
-    }
-
-    int32_t state::pop_next_int32() {
-        ip_ += sizeof(int32_t);
-        validate(ip_ < bytefile_.get_code_size(), "Unexpected end of code. Bytecode offset: %#X\n");
-        return bytefile_.get_int32(ip_ - sizeof(int32_t));
     }
 
     const frame& state::peek_frame() const {
@@ -750,17 +707,14 @@ namespace assignment_02 {
     }
 
     void state::push(value val) {
-        validate(stack_.size() + 1 <= MAX_STACK_SIZE, "Stack overflow. Bytecode offset: %#X\n");
         stack_.push(val.get_repr());
     }
 
     value state::pop() {
-        validate(!stack_.empty(), "Stack underflow. Bytecode offset: %#X\n");
         return value{from_repr_t, stack_.pop()};
     }
 
     void state::pop(uint32_t count) {
-        validate(stack_.size() >= count, "Stack underflow. Bytecode offset: %#X\n");
         stack_.pop(count);
     }
 

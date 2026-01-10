@@ -8,7 +8,7 @@
 #include "bytefile.h"
 #include "stack.h"
 
-namespace assignment_02 {
+namespace assignment_04 {
 
     struct from_repr {};
 
@@ -193,6 +193,7 @@ namespace assignment_02 {
 
         ~state();
 
+        template <bool ValidationRequired = false>
         [[nodiscard]] bytecode pop_next_op();
 
         void execute_binop_high();
@@ -302,8 +303,10 @@ namespace assignment_02 {
 
         [[nodiscard]] bytecode peek_next_op() const;
 
+        template <bool ValidationRequired = false>
         [[nodiscard]] varspec pop_next_varspec();
 
+        template <bool ValidationRequired = false>
         [[nodiscard]] int32_t pop_next_int32();
 
         [[nodiscard]] bool has_frame() const noexcept;
@@ -421,6 +424,33 @@ namespace assignment_02 {
 
     inline void frame::set_return_address(uint32_t return_address) noexcept {
         return_address_ = return_address;
+    }
+
+    template <bool ValidationRequired>
+    bytecode state::pop_next_op() {
+        ++ip_;
+        if constexpr (ValidationRequired) {
+            validate(ip_ < bytefile_.get_code_size(), "Unexpected end of code. Bytecode offset: %#X\n");
+        }
+        return bytefile_.get_code(ip_ - sizeof(bytecode));
+    }
+
+    template <bool ValidationRequired>
+    varspec state::pop_next_varspec() {
+        ++ip_;
+        if constexpr (ValidationRequired) {
+            validate(ip_ < bytefile_.get_code_size(), "Unexpected end of code. Bytecode offset: %#X\n");
+        }
+        return bytefile_.get_varspec(ip_ - sizeof(varspec));
+    }
+
+    template <bool ValidationRequired>
+    int32_t state::pop_next_int32() {
+        ip_ += sizeof(int32_t);
+        if constexpr (ValidationRequired) {
+            validate(ip_ < bytefile_.get_code_size(), "Unexpected end of code. Bytecode offset: %#X\n");
+        }
+        return bytefile_.get_int32(ip_ - sizeof(int32_t));
     }
 
     inline bool state::has_frame() const noexcept {

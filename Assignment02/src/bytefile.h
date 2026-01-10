@@ -6,6 +6,8 @@
 #include <string_view>
 #include <vector>
 
+#include "byterun_interface.h"
+
 namespace assignment_02 {
 
     enum class bytecode : uint8_t {
@@ -73,6 +75,13 @@ namespace assignment_02 {
         STOP = 0xF0
     };
 
+    enum class varspec : uint8_t {
+        GLOBAL = 0x00,
+        LOCAL = 0x01,
+        ARGUMENT = 0x02,
+        CAPTURED = 0x03
+    };
+
     class public_symbol {
     public:
         public_symbol(size_t offset, uint32_t name, uint32_t address) noexcept;
@@ -91,7 +100,11 @@ namespace assignment_02 {
 
     class bytefile {
     public:
-        explicit bytefile(std::string_view name);
+        bytefile(std::string_view name, uint32_t string_tab_size, uint32_t public_symbols_size, uint32_t code_size);
+
+        ~bytefile();
+
+        [[nodiscard]] ::bytefile* get_base() const noexcept;
 
         [[nodiscard]] std::string_view get_name() const noexcept;
 
@@ -121,21 +134,26 @@ namespace assignment_02 {
 
         bytecode get_code(uint32_t pos) const;
 
+        void set_code(uint32_t pos, bytecode code);
+
         void add_code(const std::vector<bytecode>& code);
 
-        int8_t get_int8(uint32_t pos) const;
+        varspec get_varspec(uint32_t pos) const;
+
+        void set_varspec(uint32_t pos, varspec spec);
 
         int32_t get_int32(uint32_t pos) const;
+
+        void set_int32(uint32_t pos, int32_t int32);
 
         std::span<const bytecode> get_bytes(uint32_t pos, uint32_t count) const;
 
     private:
+        ::bytefile* base_;
         std::string_view name_;
-        uint32_t global_area_size_;
-        std::vector<public_symbol> public_symbols_;
-        std::vector<char> string_tab_;
+        std::vector<size_t> offsets_;
         uint32_t code_pos_;
-        std::vector<bytecode> code_;
+        uint32_t code_size_;
     };
 
     inline size_t public_symbol::get_offset() const noexcept {
@@ -150,24 +168,28 @@ namespace assignment_02 {
         return address_;
     }
 
+    inline ::bytefile* bytefile::get_base() const noexcept {
+        return base_;
+    }
+
     inline std::string_view bytefile::get_name() const noexcept {
         return name_;
     }
 
     inline uint32_t bytefile::get_global_area_size() const noexcept {
-        return global_area_size_;
+        return base_->global_area_size;
     }
 
     inline void bytefile::set_global_area_size(uint32_t global_area_size) noexcept {
-        global_area_size_ = global_area_size;
+        base_->global_area_size = static_cast<int>(global_area_size);
     }
 
     inline uint32_t bytefile::get_public_symbols_size() const noexcept {
-        return public_symbols_.size();
+        return base_->public_symbols_number;
     }
 
     inline uint32_t bytefile::get_string_tab_size() const noexcept {
-        return string_tab_.size();
+        return base_->stringtab_size;
     }
 
     inline uint32_t bytefile::get_code_pos() const noexcept {
@@ -179,7 +201,7 @@ namespace assignment_02 {
     }
 
     inline uint32_t bytefile::get_code_size() const noexcept {
-        return code_.size();
+        return code_size_;
     }
 
 }

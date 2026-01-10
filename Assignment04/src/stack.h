@@ -9,7 +9,7 @@
 
 #include "runtime_interface.h"
 
-namespace assignment_02 {
+namespace assignment_04 {
 
     constexpr inline size_t MAX_STACK_SIZE = 0xFFFFF;
     inline std::array<auint, MAX_STACK_SIZE> stack_buf{};

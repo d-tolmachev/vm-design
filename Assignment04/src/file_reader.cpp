@@ -6,7 +6,7 @@
 #include <stdexcept>
 #include <vector>
 
-namespace assignment_02 {
+namespace assignment_04 {
 
     bytefile read_file(std::string_view path) {
         if (!std::filesystem::exists(path)) {

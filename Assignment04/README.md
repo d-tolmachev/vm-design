@@ -1,4 +1,4 @@
-\# Lama iterative bytecode interpreter
+\# Lama verifying iterative bytecode interpreter
 
 Requires \[lamac](https://github.com/PLTools/Lama/) runtime.
 
@@ -14,7 +14,7 @@ $ cmake --build .
 
 ```shell
 $ lamac -I <puth\_to\_lama\_runtime> -b <source\_file>
-$ ./build/Assignment02 <bytecode\_file>
+$ ./build/Assignment04 <bytecode\_file>
 ```
 
 \## Tests
@@ -29,4 +29,5 @@ $ ./run\_tests.sh
 |------------------------------------|------|
 | Recursive source-level interpreter | 5.41 |
 | Recursive bytecode interpreter     | 1.29 |
-| Iterative bytecode interpreter     | 2.39 |
+| Iterative bytecode interpreter (no verifier)     | 2.39 |
+| Iterative bytecode interpreter (with verifier)     | 2.17 |

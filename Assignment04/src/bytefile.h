@@ -8,7 +8,7 @@
 
 #include "byterun_interface.h"
 
-namespace assignment_03 {
+namespace assignment_04 {
 
     enum class bytecode : uint8_t {
         BINOP_HIGH = 0x00,

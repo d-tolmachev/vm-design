@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace assignment_03 {
+namespace assignment_04 {
 
     public_symbol::public_symbol(size_t offset, uint32_t name, uint32_t address) noexcept
         : offset_(offset)
