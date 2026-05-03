@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "bytefile.h"
+#include "runtime_interface.h"
 #include "stack.h"
 
 namespace assignment_02 {

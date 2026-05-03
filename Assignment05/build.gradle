@@ -1,0 +1,52 @@
+plugins {
+    id 'antlr'
+    id 'application'
+    id 'java'
+}
+
+java {
+    sourceCompatibility = '21'
+    targetCompatibility = '21'
+}
+
+repositories {
+    mavenCentral()
+}
+
+group = 'io.github.dtolmachev'
+version = '1.0-SNAPSHOT'
+
+configurations {
+    compilerClasspath {
+        canBeResolved = true
+    }
+}
+
+dependencies {
+    annotationProcessor 'org.graalvm.truffle:truffle-dsl-processor:23.1.11'
+    antlr 'org.antlr:antlr4:4.13.2'
+    compileOnly 'org.antlr:antlr4:4.13.2'
+    compilerClasspath 'org.graalvm.compiler:compiler:23.1.11'
+    implementation 'org.graalvm.truffle:truffle-api:23.1.11'
+    runtimeOnly 'org.graalvm.truffle:truffle-runtime:23.1.11'
+    testImplementation 'org.graalvm.truffle:truffle-api:23.1.11'
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+def compilerDependencies = configurations.compilerClasspath.filter { it.name.endsWith(".jar") }
+
+application {
+    applicationDefaultJvmArgs = ["-Xss64m", "-Xms1g", "-Xmx16g", "-XX:+UnlockExperimentalVMOptions", "-XX:+EnableJVMCI", "--upgrade-module-path=${compilerDependencies.asPath}"]
+    applicationName = 'Lama'
+    mainClass = 'io.github.dtolmachev.launcher.LamaMain'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+generateGrammarSource {
+    arguments += ["-visitor", "-long-messages"]
+}

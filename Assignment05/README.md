@@ -5,16 +5,13 @@ Requires \[lamac](https://github.com/PLTools/Lama/) runtime.
 \## Build
 
 ```shell
-$ mkdir build \&\& cd build
-$ cmake .. -DCMAKE\_BUILD\_TYPE=Release
-$ cmake --build .
+$ ./gradlew installDist
 ```
 
 \## Run
 
 ```shell
-$ lamac -I <puth\_to\_lama\_runtime> -b <source\_file>
-$ ./build/Assignment04 <bytecode\_file>
+$ ./build/install/Lama/dist/Lama <source\_file>
 ```
 
 \## Tests
@@ -31,3 +28,4 @@ $ ./run\_tests.sh
 | Recursive bytecode interpreter     | 1.29 |
 | Iterative bytecode interpreter (no verifier)     | 2.39 |
 | Iterative bytecode interpreter (with verifier)     | 2.17 |
+| Graal Truffle interpreter     | 3.32 |

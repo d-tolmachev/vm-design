@@ -27,6 +27,6 @@ $ ./run\_tests.sh
 
 | Interpreter                        | Time |
 |------------------------------------|------|
-| Recursive source-level interpreter | 5.41 |
+| Recursive source-level interpreter | 5.46 |
 | Recursive bytecode interpreter     | 1.29 |
 | Iterative bytecode interpreter     | 2.39 |
