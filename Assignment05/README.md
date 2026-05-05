@@ -1,4 +1,4 @@
-\# Lama verifying iterative bytecode interpreter
+\# Lama Graal Truffle interpreter
 
 Requires \[lamac](https://github.com/PLTools/Lama/) runtime.
 
