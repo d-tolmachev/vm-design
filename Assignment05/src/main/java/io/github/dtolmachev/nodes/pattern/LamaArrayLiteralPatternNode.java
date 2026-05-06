@@ -7,8 +7,6 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 
 import io.github.dtolmachev.runtime.LamaArray;
 
-import java.util.stream.IntStream;
-
 public abstract class LamaArrayLiteralPatternNode extends LamaPatternNode {
     @Children protected LamaPatternNode[] elementNodes;
 
@@ -19,9 +17,12 @@ public abstract class LamaArrayLiteralPatternNode extends LamaPatternNode {
     @Specialization(guards = "scrutinee.getElements().size() == elementNodes.length")
     public boolean checkArray(VirtualFrame frame, LamaArray scrutinee) {
         CompilerAsserts.partialEvaluationConstant(elementNodes.length);
-        return IntStream.iterate(0, i -> i + 1)
-                .limit(elementNodes.length)
-                .allMatch(i -> elementNodes[i].execute(frame, scrutinee.getElements().get(i)));
+        for (int i = 0; i < elementNodes.length; i++) {
+            if (!elementNodes[i].execute(frame, scrutinee.getElements().get(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @SuppressWarnings("unused")

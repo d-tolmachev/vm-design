@@ -1,17 +1,19 @@
 \# Lama Graal Truffle interpreter
 
-Requires \[lamac](https://github.com/PLTools/Lama/) runtime.
+For NativeImage generation requires [GraalVM](https://github.com/oracle/graal)
 
 \## Build
 
 ```shell
 $ ./gradlew installDist
+$ ./gradlew nativeCompile
 ```
 
 \## Run
 
 ```shell
-$ ./build/install/Lama/dist/Lama <source\_file>
+$ ./build/install/Assignment05/bin/Assignment05 <source\_file>
+$ ./build/native/nativeCompile/Assignment05 <source\_file>
 ```
 
 \## Tests
@@ -28,4 +30,5 @@ $ ./run\_tests.sh
 | Recursive bytecode interpreter     | 1.29 |
 | Iterative bytecode interpreter (no verifier)     | 2.39 |
 | Iterative bytecode interpreter (with verifier)     | 2.17 |
-| Graal Truffle interpreter     | 3.32 |
+| Graal Truffle interpreter (GraalVM)     | 1.01 |
+| Graal Truffle interpreter (NativeImage)     | 1.41 |

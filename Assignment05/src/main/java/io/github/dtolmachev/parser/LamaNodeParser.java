@@ -65,6 +65,7 @@ import io.github.dtolmachev.nodes.pattern.LamaPatternNode;
 import io.github.dtolmachev.nodes.pattern.LamaSExpressionLiteralPatternNodeGen;
 import io.github.dtolmachev.nodes.pattern.LamaStringLiteralPatternNodeGen;
 import io.github.dtolmachev.nodes.pattern.LamaWildcardPatternNode;
+import io.github.dtolmachev.parser.LamaBaseVisitor;
 import io.github.dtolmachev.parser.LamaParser.AdditiveExpressionContext;
 import io.github.dtolmachev.parser.LamaParser.ArrayExpressionContext;
 import io.github.dtolmachev.parser.LamaParser.ArrayLiteralContext;

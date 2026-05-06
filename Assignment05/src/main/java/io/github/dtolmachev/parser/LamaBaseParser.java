@@ -12,8 +12,8 @@ import org.antlr.v4.runtime.Recognizer;
 import org.antlr.v4.runtime.Token;
 
 import io.github.dtolmachev.LamaLanguage;
-import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.Trees;
+import io.github.dtolmachev.parser.LamaLexer;
+import io.github.dtolmachev.parser.LamaParser;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,7 +24,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 
-public abstract class LamaBaseParser extends LamaBaseVisitor<Void> {
+public abstract class   LamaBaseParser extends io.github.dtolmachev.parser.LamaBaseVisitor<Void> {
     protected static void parseLamaImpl(Source source, LamaBaseParser visitor) {
         LamaLexer lexer = new LamaLexer(CharStreams.fromString(source.getCharacters().toString()));
         LamaParser parser = new LamaParser(new CommonTokenStream(lexer));
@@ -34,8 +34,6 @@ public abstract class LamaBaseParser extends LamaBaseVisitor<Void> {
         lexer.addErrorListener(listener);
         parser.addErrorListener(listener);
         parser.compilationUnit().accept(visitor);
-        // ParseTree tree = parser.compilationUnit();
-        // System.err.println(Trees.toStringTree(tree, parser));
     }
 
     protected final LamaLanguage language;

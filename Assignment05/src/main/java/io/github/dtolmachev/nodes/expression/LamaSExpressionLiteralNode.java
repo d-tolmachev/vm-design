@@ -7,7 +7,6 @@ import io.github.dtolmachev.nodes.LamaExpressionNode;
 import io.github.dtolmachev.runtime.LamaSExpression;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 public final class LamaSExpressionLiteralNode extends LamaExpressionNode {
@@ -21,9 +20,10 @@ public final class LamaSExpressionLiteralNode extends LamaExpressionNode {
 
     @Override
     public Object execute(VirtualFrame frame) {
-        List<Object> expressions = Arrays.stream(expressionNodes)
-                .map(child -> child.execute(frame))
-                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+        List<Object> expressions = new ArrayList<>();
+        for (LamaExpressionNode expressionNode : expressionNodes) {
+            expressions.add(expressionNode.execute(frame));
+        }
         return new LamaSExpression(tag, expressions);
     }
 }

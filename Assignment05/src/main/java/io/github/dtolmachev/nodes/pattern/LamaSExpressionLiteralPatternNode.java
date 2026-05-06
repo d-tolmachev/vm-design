@@ -9,8 +9,6 @@ import com.oracle.truffle.api.strings.TruffleString;
 
 import io.github.dtolmachev.runtime.LamaSExpression;
 
-import java.util.stream.IntStream;
-
 public abstract class LamaSExpressionLiteralPatternNode extends LamaPatternNode {
     protected final TruffleString tag;
     @Children protected LamaPatternNode[] expressionNodes;
@@ -24,9 +22,12 @@ public abstract class LamaSExpressionLiteralPatternNode extends LamaPatternNode 
     @ExplodeLoop
     public boolean checkSExpression(VirtualFrame frame, LamaSExpression scrutinee) {
         CompilerAsserts.partialEvaluationConstant(expressionNodes.length);
-        return IntStream.iterate(0, i -> i + 1)
-                .limit(expressionNodes.length)
-                .allMatch(i -> expressionNodes[i].execute(frame, scrutinee.getExpressions().get(i)));
+        for (int i = 0; i < expressionNodes.length; i++) {
+            if (!expressionNodes[i].execute(frame, scrutinee.getExpressions().get(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @SuppressWarnings("unused")

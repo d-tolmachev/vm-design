@@ -2,6 +2,7 @@ plugins {
     id 'antlr'
     id 'application'
     id 'java'
+    id 'org.graalvm.buildtools.native' version '1.1.0'
 }
 
 java {
@@ -16,9 +17,13 @@ repositories {
 group = 'io.github.dtolmachev'
 version = '1.0-SNAPSHOT'
 
-configurations {
-    compilerClasspath {
-        canBeResolved = true
+def isGraalVM = new File("${System.getProperty("java.home")}/lib/graalvm").exists()
+
+if (!isGraalVM) {
+    configurations {
+        compilerClasspath {
+            canBeResolved = true
+        }
     }
 }
 
@@ -26,21 +31,39 @@ dependencies {
     annotationProcessor 'org.graalvm.truffle:truffle-dsl-processor:23.1.11'
     antlr 'org.antlr:antlr4:4.13.2'
     compileOnly 'org.antlr:antlr4:4.13.2'
-    compilerClasspath 'org.graalvm.compiler:compiler:23.1.11'
-    implementation 'org.graalvm.truffle:truffle-api:23.1.11'
+    compileOnly 'org.graalvm.truffle:truffle-api:23.1.11'
+    if (!isGraalVM) {
+        compilerClasspath 'org.graalvm.compiler:compiler:23.1.11'
+    }
     runtimeOnly 'org.graalvm.truffle:truffle-runtime:23.1.11'
-    testImplementation 'org.graalvm.truffle:truffle-api:23.1.11'
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation platform('org.junit:junit-bom:5.10.0')
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
-def compilerDependencies = configurations.compilerClasspath.filter { it.name.endsWith(".jar") }
-
 application {
-    applicationDefaultJvmArgs = ["-Xss64m", "-Xms1g", "-Xmx16g", "-XX:+UnlockExperimentalVMOptions", "-XX:+EnableJVMCI", "--upgrade-module-path=${compilerDependencies.asPath}"]
-    applicationName = 'Lama'
+    applicationDefaultJvmArgs.add("-Xss64m")
+    applicationDefaultJvmArgs.add("-Xms1g")
+    applicationDefaultJvmArgs.add("-Xmx16g")
+    if (!isGraalVM) {
+        def compilerDependencies = configurations.compilerClasspath.filter { it.name.endsWith(".jar") }
+        applicationDefaultJvmArgs.add("-XX:+UnlockExperimentalVMOptions")
+        applicationDefaultJvmArgs.add("-XX:+EnableJVMCI")
+        applicationDefaultJvmArgs.add("--upgrade-module-path=${compilerDependencies.asPath}")
+    }
     mainClass = 'io.github.dtolmachev.launcher.LamaMain'
+}
+
+graalvmNative {
+    binaries {
+        main {
+            sharedLibrary = false
+            buildArgs.add("--initialize-at-build-time=io.github.dtolmachev.runtime")
+            jvmArgs.add("-Xss64m")
+            jvmArgs.add("-Xms1g")
+            jvmArgs.add("-Xmx16g")
+        }
+    }
 }
 
 test {
@@ -48,5 +71,6 @@ test {
 }
 
 generateGrammarSource {
-    arguments += ["-visitor", "-long-messages"]
+    arguments.add("-visitor")
+    arguments.add("-long-messages")
 }

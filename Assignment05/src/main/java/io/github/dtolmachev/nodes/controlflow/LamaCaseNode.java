@@ -7,8 +7,6 @@ import io.github.dtolmachev.LamaException;
 import io.github.dtolmachev.nodes.LamaExpressionNode;
 import io.github.dtolmachev.nodes.pattern.LamaPatternNode;
 
-import java.util.stream.IntStream;
-
 @NodeInfo(shortName = "case")
 public final class LamaCaseNode extends LamaExpressionNode {
     @Child private LamaExpressionNode scrutineeNode;
@@ -24,11 +22,11 @@ public final class LamaCaseNode extends LamaExpressionNode {
     @Override
     public Object execute(VirtualFrame frame) {
         Object scrutinee = scrutineeNode.execute(frame);
-        return IntStream.iterate(0, i -> i + 1)
-                .limit(patternNodes.length)
-                .dropWhile(i -> !patternNodes[i].execute(frame, scrutinee))
-                .mapToObj(i -> branchNodes[i].execute(frame))
-                .findFirst()
-                .orElseThrow(() -> LamaException.matchFailure(scrutineeNode));
+        for (int i = 0; i < patternNodes.length; i++) {
+            if (patternNodes[i].execute(frame, scrutinee)) {
+                return branchNodes[i].execute(frame);
+            }
+        }
+        throw LamaException.matchFailure(scrutineeNode);
     }
 }

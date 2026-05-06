@@ -1,7 +1,7 @@
 #!/bin/bash
 
 LAMAC=lamac
-ASSIGNMENT05="$(pwd)/build/install/Lama/bin/Lama"
+ASSIGNMENT05="$(pwd)/build/install/Assignment05/bin/Assignment05"
 DIFF=diff
 TIME="/usr/bin/time"
 RUNTIME_DIR="$(pwd)/../runtime"
