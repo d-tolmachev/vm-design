@@ -30,5 +30,5 @@ $ ./run\_tests.sh
 | Recursive bytecode interpreter     | 1.29 |
 | Iterative bytecode interpreter (no verifier)     | 2.39 |
 | Iterative bytecode interpreter (with verifier)     | 2.17 |
-| Graal Truffle interpreter (GraalVM)     | 1.01 |
-| Graal Truffle interpreter (NativeImage)     | 1.41 |
+| Graal Truffle interpreter (GraalVM)     | 0.32 |
+| Graal Truffle interpreter (NativeImage)     | 0.50 |

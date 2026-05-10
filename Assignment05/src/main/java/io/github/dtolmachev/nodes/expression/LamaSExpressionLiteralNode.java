@@ -1,6 +1,7 @@
 package io.github.dtolmachev.nodes.expression;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.strings.TruffleString;
 
 import io.github.dtolmachev.nodes.LamaExpressionNode;
@@ -19,6 +20,7 @@ public final class LamaSExpressionLiteralNode extends LamaExpressionNode {
     }
 
     @Override
+    @ExplodeLoop
     public Object execute(VirtualFrame frame) {
         List<Object> expressions = new ArrayList<>();
         for (LamaExpressionNode expressionNode : expressionNodes) {

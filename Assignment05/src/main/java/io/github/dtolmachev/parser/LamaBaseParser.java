@@ -24,7 +24,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Supplier;
 
-public abstract class   LamaBaseParser extends io.github.dtolmachev.parser.LamaBaseVisitor<Void> {
+public abstract class   LamaBaseParser extends LamaBaseVisitor<Void> {
     protected static void parseLamaImpl(Source source, LamaBaseParser visitor) {
         LamaLexer lexer = new LamaLexer(CharStreams.fromString(source.getCharacters().toString()));
         LamaParser parser = new LamaParser(new CommonTokenStream(lexer));

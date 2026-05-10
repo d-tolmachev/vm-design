@@ -1,6 +1,7 @@
 package io.github.dtolmachev.nodes.controlflow;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.nodes.ExplodeLoop;
 import com.oracle.truffle.api.nodes.NodeInfo;
 
 import io.github.dtolmachev.LamaException;
@@ -20,6 +21,7 @@ public final class LamaCaseNode extends LamaExpressionNode {
     }
 
     @Override
+    @ExplodeLoop
     public Object execute(VirtualFrame frame) {
         Object scrutinee = scrutineeNode.execute(frame);
         for (int i = 0; i < patternNodes.length; i++) {

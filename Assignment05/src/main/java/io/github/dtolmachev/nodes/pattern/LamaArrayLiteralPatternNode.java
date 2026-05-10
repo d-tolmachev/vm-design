@@ -5,6 +5,7 @@ import com.oracle.truffle.api.dsl.Fallback;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.frame.VirtualFrame;
 
+import com.oracle.truffle.api.nodes.ExplodeLoop;
 import io.github.dtolmachev.runtime.LamaArray;
 
 public abstract class LamaArrayLiteralPatternNode extends LamaPatternNode {
@@ -15,6 +16,7 @@ public abstract class LamaArrayLiteralPatternNode extends LamaPatternNode {
     }
 
     @Specialization(guards = "scrutinee.getElements().size() == elementNodes.length")
+    @ExplodeLoop
     public boolean checkArray(VirtualFrame frame, LamaArray scrutinee) {
         CompilerAsserts.partialEvaluationConstant(elementNodes.length);
         for (int i = 0; i < elementNodes.length; i++) {

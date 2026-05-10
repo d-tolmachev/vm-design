@@ -2,6 +2,7 @@ package io.github.dtolmachev.nodes;
 
 import com.oracle.truffle.api.CompilerAsserts;
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.nodes.ExplodeLoop;
 
 public final class LamaSequenceNode extends LamaExpressionNode {
     @Children private LamaExpressionNode[] nodes;
@@ -15,6 +16,7 @@ public final class LamaSequenceNode extends LamaExpressionNode {
     }
 
     @Override
+    @ExplodeLoop
     public Object execute(VirtualFrame frame) {
         CompilerAsserts.partialEvaluationConstant(nodes.length - 1);
         for (int i = 0; i < nodes.length - 1; i++) {
