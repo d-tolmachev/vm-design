@@ -1,5 +1,6 @@
 package io.github.dtolmachev.builtins;
 
+import com.oracle.truffle.api.dsl.GenerateInline;
 import com.oracle.truffle.api.dsl.Specialization;
 
 import io.github.dtolmachev.LamaLanguage;
@@ -7,6 +8,7 @@ import io.github.dtolmachev.runtime.LamaArray;
 import io.github.dtolmachev.runtime.LamaSExpression;
 import io.github.dtolmachev.runtime.LamaString;
 
+@GenerateInline(false)
 public abstract class LamaLengthBuiltin extends LamaBuiltinNode {
     @Specialization
     public long stringLength(LamaString string) {

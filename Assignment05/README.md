@@ -1,6 +1,6 @@
 \# Lama Graal Truffle interpreter
 
-For NativeImage generation requires [GraalVM](https://github.com/oracle/graal)
+For NativeImage generation requires [GraalVM](https://github.com/oracle/graal) 21.XX
 
 \## Build
 

@@ -2,12 +2,14 @@ package io.github.dtolmachev.builtins;
 
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.dsl.Cached;
+import com.oracle.truffle.api.dsl.GenerateInline;
 import com.oracle.truffle.api.dsl.Specialization;
 import com.oracle.truffle.api.strings.TruffleString.ToJavaStringNode;
 
 import io.github.dtolmachev.runtime.LamaNull;
 import io.github.dtolmachev.runtime.LamaString;
 
+@GenerateInline(false)
 public abstract class LamaPrintlnBuiltin extends LamaBuiltinNode {
     @Specialization
     @TruffleBoundary

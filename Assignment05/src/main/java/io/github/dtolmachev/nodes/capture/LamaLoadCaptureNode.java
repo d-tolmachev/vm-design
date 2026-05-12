@@ -17,13 +17,13 @@ public abstract class LamaLoadCaptureNode extends LamaExpressionNode {
     }
 
     @Specialization(rewriteOn = FrameSlotTypeException.class)
-    public Object loadObject(VirtualFrame frame) {
-        return lookupMaterializedFrameNode.execute(frame).getObject(slot);
+    public long loadLong(VirtualFrame frame) {
+        return lookupMaterializedFrameNode.execute(frame).getLong(slot);
     }
 
     @Specialization(rewriteOn = FrameSlotTypeException.class)
-    public long loadLong(VirtualFrame frame) {
-        return lookupMaterializedFrameNode.execute(frame).getLong(slot);
+    public Object loadObject(VirtualFrame frame) {
+        return lookupMaterializedFrameNode.execute(frame).getObject(slot);
     }
 
     @Specialization(replaces = {"loadObject", "loadLong"})

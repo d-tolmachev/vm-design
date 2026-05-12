@@ -18,7 +18,7 @@ public abstract class LamaLoadGlobalNode extends LamaExpressionNode {
     }
 
     @Specialization
-    public Object load(@Cached("lookupGlobal()") Object value) {
+    public Object load(@Cached(value = "lookupGlobal()", neverDefault = true) Object value) {
         if (Objects.isNull(value)) {
             CompilerDirectives.shouldNotReachHere();
         }

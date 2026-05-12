@@ -2,11 +2,13 @@ package io.github.dtolmachev.builtins;
 
 import com.oracle.truffle.api.CompilerDirectives.TruffleBoundary;
 import com.oracle.truffle.api.dsl.Bind;
+import com.oracle.truffle.api.dsl.GenerateInline;
 import com.oracle.truffle.api.dsl.Specialization;
 
 import io.github.dtolmachev.runtime.LamaContext;
 import io.github.dtolmachev.runtime.LamaNull;
 
+@GenerateInline(false)
 public abstract class LamaWriteBuiltin extends LamaBuiltinNode {
     @Specialization
     @TruffleBoundary
