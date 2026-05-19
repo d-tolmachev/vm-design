@@ -4,6 +4,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "sigsegv_handler.h"
+
 namespace assignment_06 {
 
     pool::pool(size_t capacity, size_t max_chunk_size)
@@ -19,6 +21,7 @@ namespace assignment_06 {
             std::perror("mprotect failed");
             std::exit(EXIT_FAILURE);
         }
+        register_sigsegv_handler();
     }
 
     pool::~pool() {
@@ -27,7 +30,7 @@ namespace assignment_06 {
 
     size_t pool::next_pagesize(size_t size) {
         static size_t pagesize = sysconf(_SC_PAGESIZE);
-        return ((size + pagesize - 1) / pagesize + 1 / (size + 1)) * pagesize;
+        return (((size + pagesize - 1) & ~(pagesize - 1)) & ~((size - 1) >> 63)) | (pagesize & ((size - 1) >> 63));
     }
 
 }

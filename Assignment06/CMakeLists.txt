@@ -6,10 +6,11 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_library(Assignment06 STATIC
         src/pool.cpp
+        src/sigsegv_handler.cpp
 )
 
 add_executable(test
-        ../memory_pool/test.cpp
+        memory_pool/test.cpp
 )
 
 target_include_directories(test PRIVATE ${PROJECT_SOURCE_DIR}/src)

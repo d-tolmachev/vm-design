@@ -10,10 +10,6 @@ namespace assignment_06 {
 
     struct custom_pool {};
 
-    [[maybe_unused]] constexpr static standard_allocator standard_allocator_t;
-
-    [[maybe_unused]] constexpr static custom_pool custom_pool_t;
-
     class pool {
     public:
         pool(size_t capacity, size_t max_chunk_size);

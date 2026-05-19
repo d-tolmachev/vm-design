@@ -50,7 +50,7 @@ static inline void test(unsigned n) {
     std::cout << "Time used: " << time_used << " usec" << std::endl;
     int64_t mem_used = (finish.ru_maxrss - start.ru_maxrss) * 1024;
     std::cout << "Memory used: " << mem_used << " bytes" << std::endl;
-    int64_t mem_required = n * sizeof(Node);
+    int64_t mem_required = static_cast<int64_t>(n * sizeof(Node));
     double overhead = (mem_used - mem_required) * static_cast<double>(100) / mem_used;
     std::cout << "Overhead: " << std::fixed << std::setw(4) << std::setprecision(1) << overhead << '%' << std::endl;
 }

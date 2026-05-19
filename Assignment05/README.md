@@ -1,28 +1,28 @@
-\# Lama Graal Truffle interpreter
+# Lama Graal Truffle interpreter
 
 For NativeImage generation requires [GraalVM](https://github.com/oracle/graal) 21.XX
 
-\## Build
+## Build
 
 ```shell
 $ ./gradlew installDist
 $ ./gradlew nativeCompile
 ```
 
-\## Run
+## Run
 
 ```shell
-$ ./build/install/Assignment05/bin/Assignment05 <source\_file>
-$ ./build/native/nativeCompile/Assignment05 <source\_file>
+$ ./build/install/Assignment05/bin/Assignment05 <source_file>
+$ ./build/native/nativeCompile/Assignment05 <source_file>
 ```
 
-\## Tests
+## Tests
 
 ```shell
-$ ./run\_tests.sh
+$ ./run_tests.sh
 ```
 
-\## Performance
+## Performance
 
 | Interpreter                        | Time |
 |------------------------------------|------|

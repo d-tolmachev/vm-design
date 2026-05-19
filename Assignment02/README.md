@@ -1,29 +1,29 @@
-\# Lama iterative bytecode interpreter
+# Lama iterative bytecode interpreter
 
-Requires \[lamac](https://github.com/PLTools/Lama/) runtime.
+Requires [lamac](https://github.com/PLTools/Lama/) runtime.
 
-\## Build
+## Build
 
 ```shell
-$ mkdir build \&\& cd build
-$ cmake .. -DCMAKE\_BUILD\_TYPE=Release
+$ mkdir build && cd build
+$ cmake .. -DCMAKE_BUILD_TYPE=Release
 $ cmake --build .
 ```
 
-\## Run
+## Run
 
 ```shell
-$ lamac -I <puth\_to\_lama\_runtime> -b <source\_file>
-$ ./build/Assignment02 <bytecode\_file>
+$ lamac -I <puth_to_lama_runtime> -b <source_file>
+$ ./build/Assignment02 <bytecode_file>
 ```
 
-\## Tests
+## Tests
 
 ```shell
-$ ./run\_tests.sh
+$ ./run_tests.sh
 ```
 
-\## Performance
+## Performance
 
 | Interpreter                        | Time |
 |------------------------------------|------|
