@@ -32,7 +32,6 @@ add_executable(Assignment04
         src/file_reader.cpp
         src/interpreter.cpp
         src/main.cpp
-        src/verifier.h
         src/verifier.cpp
 )
 
