@@ -37,11 +37,12 @@ static inline void delete_list(Node* list) {
     }
 }
 
-template <class Allocator>
-static inline void test(unsigned n) {
+template <class Allocator, class Initializer>
+static inline void test(unsigned n, Initializer&& initializer) {
     rusage start;
     rusage finish;
     get_usage(start);
+    initializer();
     delete_list<Allocator>(create_list<Allocator>(n));
     get_usage(finish);
     timeval diff;
@@ -57,10 +58,9 @@ static inline void test(unsigned n) {
 
 int main(const int argc, const char** argv) {
     constexpr static unsigned N = 10000000;
-    assignment_06::get_pool<assignment_06::pool>(N * sizeof(Node), sizeof(Node));
     std::cout << "Standard allocator:" << std::endl;
-    test<assignment_06::standard_allocator_t>(N);
+    test<assignment_06::standard_allocator_t>(N, []() {});
     std::cout << "Custom pool:" << std::endl;
-    test<assignment_06::custom_pool_t>(N);
+    test<assignment_06::custom_pool_t>(N, []() { assignment_06::get_pool<assignment_06::pool>(N * sizeof(Node), sizeof(Node)); });
     return EXIT_SUCCESS;
 }
