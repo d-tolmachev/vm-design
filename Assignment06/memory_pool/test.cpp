@@ -60,7 +60,7 @@ int main(const int argc, const char** argv) {
     constexpr static unsigned N = 10000000;
     std::cout << "Standard allocator:" << std::endl;
     test<assignment_06::standard_allocator_t>(N, []() {});
-    std::cout << "Custom pool:" << std::endl;
-    test<assignment_06::custom_pool_t>(N, []() { assignment_06::get_pool<assignment_06::pool>(N * sizeof(Node), sizeof(Node)); });
+    std::cout << "Pool:" << std::endl;
+    test<assignment_06::pool_t>(N, []() { assignment_06::pool::get_or_create(N * sizeof(Node), sizeof(Node)); });
     return EXIT_SUCCESS;
 }

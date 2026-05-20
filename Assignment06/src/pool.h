@@ -8,7 +8,7 @@ namespace assignment_06 {
 
     struct standard_allocator_t {};
 
-    struct custom_pool_t {};
+    struct pool_t {};
 
     class pool_base {
     public:
@@ -20,6 +20,7 @@ namespace assignment_06 {
 
         pool_base(size_t capacity, size_t max_chunk_size);
 
+    private:
         static size_t next_pagesize(size_t size);
     };
 
@@ -28,6 +29,8 @@ namespace assignment_06 {
         pool(size_t capacity, size_t max_chunk_size);
 
         inline void* allocate(size_t size);
+
+        inline static pool* get_or_create(size_t capacity, size_t max_chunk_size);
 
     private:
         std::byte* first_free_;
@@ -38,10 +41,9 @@ namespace assignment_06 {
         return first_free_;
     }
 
-    template <class Pool>
-    inline pool* get_pool(size_t capacity, size_t max_chunk_size) {
-        static Pool p(capacity, max_chunk_size);
-        return &p;
+    inline pool* pool::get_or_create(size_t capacity, size_t max_chunk_size) {
+        static pool pool_instance(capacity, max_chunk_size);
+        return &pool_instance;
     }
 
 }
@@ -50,16 +52,15 @@ inline void* operator new(size_t size, assignment_06::standard_allocator_t) {
     return std::malloc(size);
 }
 
-inline void* operator new(size_t size, assignment_06::custom_pool_t) {
-    assignment_06::pool* pool_ptr = assignment_06::get_pool<assignment_06::pool>(0, 0);
-    return pool_ptr->allocate(size);
+inline void* operator new(size_t size, assignment_06::pool_t) {
+    return assignment_06::pool::get_or_create(0, 0)->allocate(size);
 }
 
 inline void operator delete(void* ptr, assignment_06::standard_allocator_t) noexcept {
     std::free(ptr);
 }
 
-inline void operator delete(void* ptr, assignment_06::custom_pool_t) {
+inline void operator delete(void* ptr, assignment_06::pool_t) noexcept {
 }
 
 #endif
