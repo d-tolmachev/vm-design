@@ -5,11 +5,12 @@
 #include <condition_variable>
 #include <iostream>
 #include <mutex>
-#include <queue>
 #include <stdexcept>
 #include <utility>
 #include <thread>
 #include <vector>
+
+#include "bounded_deque.h"
 
 namespace assignment_10 {
 
@@ -32,11 +33,12 @@ namespace assignment_10 {
 
         void stop() noexcept;
 
-        template <class... Args>
-        void emplace(Args&&... args);
+        void submit(const T& action);
+
+        void submit(T&& action);
 
     private:
-        std::queue<T> actions_;
+        bounded_deque<T> actions_;
         mutable std::mutex mutex_;
         mutable std::condition_variable cond_;
         bool stop_;
@@ -47,7 +49,8 @@ namespace assignment_10 {
 
     template <std::invocable T>
     thread_pool<T>::thread_pool(size_t threads_cnt)
-        : stop_(false) {
+        : actions_(threads_cnt)
+        , stop_(false) {
         workers_.reserve(threads_cnt);
         while (threads_cnt > 0) {
             auto execute = [this]() {
@@ -85,11 +88,19 @@ namespace assignment_10 {
     }
 
     template <std::invocable T>
-    template <class... Args>
-    void thread_pool<T>::emplace(Args&&... args) {
+    void thread_pool<T>::submit(const T& action) {
         {
             std::scoped_lock<std::mutex> lock(mutex_);
-            actions_.emplace(std::forward<Args>(args)...);
+            actions_.push_back(action);
+        }
+        cond_.notify_one();
+    }
+
+    template <std::invocable T>
+    void thread_pool<T>::submit(T&& action) {
+        {
+            std::scoped_lock<std::mutex> lock(mutex_);
+            actions_.push_back(std::move(action));
         }
         cond_.notify_one();
     }
@@ -105,7 +116,7 @@ namespace assignment_10 {
                 return;
             }
             T action = std::move(actions_.front());
-            actions_.pop();
+            actions_.pop_front();
             lock.unlock();
             try {
                 action();

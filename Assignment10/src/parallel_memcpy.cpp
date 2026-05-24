@@ -43,7 +43,7 @@ namespace assignment_10 {
             auto copy_chunk = [dst, src, chunk_size, i]() {
                 memcpy_chunk(static_cast<std::byte*>(dst) + i * chunk_size, static_cast<const std::byte*>(src) + i * chunk_size, chunk_size);
             };
-            pool->emplace(copy_chunk);
+            pool->submit(copy_chunk);
         }
         std::copy_n(static_cast<const std::byte*>(src) + tail_offset, tail_size, static_cast<std::byte*>(dst) + tail_offset);
         std::unique_lock<std::mutex> lock(mutex);
