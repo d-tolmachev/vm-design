@@ -28,7 +28,7 @@ namespace assignment_10 {
     }
 
     void initialize_thread_pool(size_t threads_cnt) {
-        pool.emplace(threads_cnt);
+        pool.emplace(threads_cnt, threads_cnt);
         current_threads_cnt = threads_cnt;
     }
 

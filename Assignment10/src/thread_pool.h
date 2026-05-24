@@ -17,7 +17,7 @@ namespace assignment_10 {
     template <std::invocable T>
     class thread_pool {
     public:
-        explicit thread_pool(size_t threads_cnt = std::thread::hardware_concurrency());
+        thread_pool(size_t actions_capacity, size_t threads_cnt = std::thread::hardware_concurrency());
 
         thread_pool(const thread_pool& other) = delete;
 
@@ -48,8 +48,8 @@ namespace assignment_10 {
     };
 
     template <std::invocable T>
-    thread_pool<T>::thread_pool(size_t threads_cnt)
-        : actions_(threads_cnt)
+    thread_pool<T>::thread_pool(size_t actions_capacity, size_t threads_cnt)
+        : actions_(actions_capacity)
         , stop_(false) {
         workers_.reserve(threads_cnt);
         while (threads_cnt > 0) {
